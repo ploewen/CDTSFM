@@ -88,24 +88,38 @@ y_train = Y[(Y.strat_fold != test_fold)].diagnostic_superclass
 X_test = X[np.where(Y.strat_fold == test_fold)]
 y_test = Y[Y.strat_fold == test_fold].diagnostic_superclass
 
-print("Done processing files.")
-print("Saving files to parquet...")
+# Flatten the 3D arrays into 2D arrays before converting to DataFrames
+X_train_flat = X_train.reshape(X_train.shape[0], -1)  # Flatten last two dimensions
+X_test_flat = X_test.reshape(X_test.shape[0], -1)  # Flatten last two dimensions
 
+
+# Data tests to check files are the right shape
+if not (X_train_flat.shape[1] + X_test_flat.shape[1] == 12 * 2000):
+    print(f"\033[91m{'X data has the wrong number of columns.'}\033[0m")
+    sys.exit(1)
+
+if not (X_train_flat.shape[0] + X_test_flat.shape[0] == 21799):
+    print(f"\033[91m{'X data has the wrong number of rows.'}\033[0m")
+    sys.exit(1)
+
+if not (y_train.shape[0] + y_test.shape[0] == 21799):
+    print(f"\033[91m{'y data has the wrong number of rows.'}\033[0m")
+    sys.exit(1)
+
+print("Done processing files.")
 
 # Make the output directory if it does not yet exists
 output_path = "data/processed/ptb-xl"
 if not os.path.exists(output_path):
     os.makedirs(output_path)
 
-# Flatten the 3D arrays into 2D arrays before converting to DataFrames
-X_train_flat = X_train.reshape(X_train.shape[0], -1)  # Flatten last two dimensions
-X_test_flat = X_test.reshape(X_test.shape[0], -1)  # Flatten last two dimensions
-
 # Convert flattened NumPy arrays and lists to Pandas DataFrames
 X_train_df = pd.DataFrame(X_train_flat)
 X_test_df = pd.DataFrame(X_test_flat)
 y_train_df = pd.DataFrame(y_train)
 y_test_df = pd.DataFrame(y_test)
+
+print("Saving files to parquet...")
 
 # Save DataFrames to Parquet files
 X_train_df.to_parquet(os.path.join(output_path, "pcb-xl-X-train.parquet"))
