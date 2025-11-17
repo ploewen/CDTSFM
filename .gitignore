@@ -11,5 +11,8 @@ wheels/
 
 # Data folder
 data/
+!src/data/
+
 
 README_files/
+README.html
