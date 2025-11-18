@@ -22,7 +22,7 @@ path = "data/raw/ESC-50-master/audio/"
 
 # Cause script to end if required files are not found
 if not os.path.exists(path):
-    print(f"\033[91m{'ESC-50 files not found.'}\033[0m")
+    print(f"\033[31m{'ESC-50 files not found.'}\033[0m")
     sys.exit(1)
 
 print("Processing files...")
@@ -59,30 +59,30 @@ y_test = Y[folds == test_fold]
 # Data tests to check files are the right shape
 if not (X_train.shape == (1600, 220500)):
     print(
-        f"\033[91m{'X train data has the wrong shape. '}\033[0m\033[91m{X_train.shape}\033[0m"
+        f"\033[31m{'X train data has the wrong shape. '}\033[0m\033[31m{X_train.shape}\033[0m"
     )
-    print(f"\033[91m{'Shape should be  be (1600, 220500)'}\033[0m")
+    print(f"\033[31m{'Shape should be  be (1600, 220500)'}\033[0m")
     sys.exit(1)
 
 if not (X_test.shape == (400, 220500)):
     print(
-        f"\033[91m{'X test data has the wrong shape. '}\033[0m\033[91m{X_test.shape}\033[0m"
+        f"\033[31m{'X test data has the wrong shape. '}\033[0m\033[31m{X_test.shape}\033[0m"
     )
-    print(f"\033[91m{'Shape should be  be (400, 220500)'}\033[0m")
+    print(f"\033[31m{'Shape should be  be (400, 220500)'}\033[0m")
     sys.exit(1)
 
 if not (y_train.shape == (1600, 1)):
     print(
-        f"\033[91m{'y train data has the wrong shape. '}\033[0m\033[91m{y_train.shape}\033[0m"
+        f"\033[31m{'y train data has the wrong shape. '}\033[0m\033[31m{y_train.shape}\033[0m"
     )
-    print(f"\033[91m{'Shape should be  be (1600, 1)'}\033[0m")
+    print(f"\033[31m{'Shape should be  be (1600, 1)'}\033[0m")
     sys.exit(1)
 
 if not (y_test.shape == (400, 1)):
     print(
-        f"\033[91m{'y test data has the wrong shape. '}\033[0m\033[91m{y_test.shape}\033[0m"
+        f"\033[31m{'y test data has the wrong shape. '}\033[0m\033[31m{y_test.shape}\033[0m"
     )
-    print(f"\033[91m{'Shape should be  be (400, 1)'}\033[0m")
+    print(f"\033[31m{'Shape should be  be (400, 1)'}\033[0m")
     sys.exit(1)
 
 print("Done processing files.")
