@@ -16,21 +16,27 @@
 # variable stars. arXiv (Cornell University). https://doi.org/10.48550/arxiv.2510.06200
 
 from datasets import load_dataset
+import pandas as pd
 import os
 
 # Download huggingface dataset
+print("Downloading data...")
 ds = load_dataset("123anonymous123/StarEmbed")
+print("Done downloading data.")
 
 # If raw data folder does not exist, create it
 output_path = "data/raw/star"
 if not os.path.exists(output_path):
     os.makedirs(output_path)
 
+print("Saving data...")
+train_data = pd.DataFrame(ds["train"])
+val_data = pd.DataFrame(ds["validation"])
+merged_data = pd.concat([train_data, val_data])
 
-splits = ["train", "test", "validation"]
-for split in splits:
-    file_name = split + "-star-raw.parquet"
-    print(f"Saving {file_name}.")
-    split_ds = ds[split].to_parquet(os.path.join(output_path, file_name))
+merged_data.to_parquet(os.path.join(output_path, "train-star-raw.parquet"))
+print("Saved training data.")
+ds["test"].to_parquet(os.path.join(output_path, "test-star-raw.parquet"))
+print("Saved testing data.")
 
-print("Done downloading data.")
+print("Done saving data.")
