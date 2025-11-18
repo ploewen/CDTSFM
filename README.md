@@ -1,8 +1,8 @@
-# Cross Domain Foundation Models
+# Cross Domain Time Series Foundation Models
 
-In this project I aim to compare the zero shot performance of Foundation Models for classification
-tasks in different domains. To this end I will source data from economics, healthcare,
-finance and engineering. I am to compare one model from each of these domains as well as 
+In this project I aim to compare the zero shot performance of Time Series Foundation Models (TSFM) for classification
+tasks in different domains. To this end I will source data from healthcare,
+finance and engineering. I am to compare TSFMs from each of these domains as well as 
 some general foundation models, custom embedding models and a random embedding model.
 
 ## Data
