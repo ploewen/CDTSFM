@@ -53,7 +53,7 @@ sampling_rate = 100
 
 # Cause script to end if required files are not found
 if not os.path.exists(path):
-    print(f"\033[91m{'PTB-XL files not found.'}\033[0m")
+    print(f"\033[31m{'PTB-XL files not found.'}\033[0m")
     sys.exit(1)
 
 # load and convert annotation data
@@ -95,15 +95,15 @@ X_test_flat = X_test.reshape(X_test.shape[0], -1)  # Flatten last two dimensions
 
 # Data tests to check files are the right shape
 if not (X_train_flat.shape[1] + X_test_flat.shape[1] == 12 * 2000):
-    print(f"\033[91m{'X data has the wrong number of columns.'}\033[0m")
+    print(f"\033[31m{'X data has the wrong number of columns.'}\033[0m")
     sys.exit(1)
 
 if not (X_train_flat.shape[0] + X_test_flat.shape[0] == 21799):
-    print(f"\033[91m{'X data has the wrong number of rows.'}\033[0m")
+    print(f"\033[31m{'X data has the wrong number of rows.'}\033[0m")
     sys.exit(1)
 
 if not (y_train.shape[0] + y_test.shape[0] == 21799):
-    print(f"\033[91m{'y data has the wrong number of rows.'}\033[0m")
+    print(f"\033[31m{'y data has the wrong number of rows.'}\033[0m")
     sys.exit(1)
 
 print("Done processing files.")
