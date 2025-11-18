@@ -34,19 +34,6 @@ To pre-process the data we adapt the methodology put forward in [6]. We do so by
 Financial literature suggests that forecasting based on classifying the direction of the return generally performs better than level estimation [8]. To this end, we set the input variables of our models to be composed of the returns from sliding window of 20 days (approximately 1 trading month) with the output variable set as 1 or 0 if the following day's return is above or below the window's median return respectively.
 
 ## References
-
-<style>
-ol > li::marker {
-    content:"[" counter(list-item) "]";
-}
-ol > li {
-    padding-left: 0.25in;
-  }
-ol {
-    padding-left: 1.5em; /* Adjust this value to match the indentation of the rest of the file */
-    margin-left: 0; /* Ensures no extra margin is added */
-  }
-</style>
 <ol>
   <li>
     P. Wagner, N. Strodthoff, R.-D. Bousseljot, W. Samek, and T. Schaeffter, “PTB-XL, a large publicly available electrocardiography dataset,” PhysioNet, Nov. 2022, doi: <a href="https://doi.org/10.13026/kfzx-aw45">https://doi.org/10.13026/kfzx-aw45</a>.
