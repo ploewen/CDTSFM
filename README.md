@@ -44,40 +44,40 @@ The stars were first pre-classified using multivariate kernel density estimation
 ## References
 <ol>
   <li>
-    P. Wagner, N. Strodthoff, R.-D. Bousseljot, W. Samek, and T. Schaeffter, “PTB-XL, a large publicly available electrocardiography dataset,” PhysioNet, Nov. 2022, doi: 10.13026/kfzx-aw45.
+    P. Wagner, N. Strodthoff, R.-D. Bousseljot, W. Samek, and T. Schaeffter, “PTB-XL, a large publicly available electrocardiography dataset,” <i>PhysioNet</i>, Nov. 2022, doi: 10.13026/kfzx-aw45.
   </li>
   <li>
-    P. Wagner, N. Strodthoff, R.-D. Bousseljot, W. Samek, and T. Schaeffter., “PTB-XL, a large publicly available electrocardiography dataset,” *Scientific Data*, vol. 7, no. 1, May 2020, doi: 10.1038/s41597-020-0495-6.
+    P. Wagner, N. Strodthoff, R.-D. Bousseljot, W. Samek, and T. Schaeffter., “PTB-XL, a large publicly available electrocardiography dataset,” <i>Scientific Data</i>, vol. 7, no. 1, May 2020, doi: 10.1038/s41597-020-0495-6.
   </li>
   <li>
-    A. L. Goldberger *et al*. “PhysioBank, PhysioToolkit, and PhysioNet,” *Circulation*, vol. 101, no. 23, June 2000, doi: 10.1161/01.cir.101.23.e215.
+    A. L. Goldberger <i>et al</i>. “PhysioBank, PhysioToolkit, and PhysioNet,” <i>Circulation</i>, vol. 101, no. 23, June 2000, doi: 10.1161/01.cir.101.23.e215.
   </li>
   <li>
-    K. J. Piczak, “ESC: Dataset for Environmental Sound Classification,” *Proceedings of the 23rd ACM International Conference on Multimedia*, pp. 1015–1018, 2015, doi: 10.1145/2733373.2806390  .
+    K. J. Piczak, “ESC: Dataset for Environmental Sound Classification,” <i>Proceedings of the 23rd ACM International Conference on Multimedia</i>, pp. 1015–1018, 2015, doi: 10.1145/2733373.2806390  .
   </li>
   <li>
     Yahoo Finance, “Yahoo Finance - Business Finance, Stock Market, Quotes, News,” Yahoo Finance, 2025. <a href="https://finance.yahoo.com/">https://finance.yahoo.com/</a>
   </li>
   <li>
-    C. Krauss, X. A. Do, and N. Huck, “Deep neural networks, gradient-boosted trees, random forests: Statistical arbitrage on the S&P 500,” *European Journal of Operational Research*, vol. 259, no. 2, pp. 689–702, Jun. 2017, doi: 10.1016/j.ejor.2016.10.031.
+    C. Krauss, X. A. Do, and N. Huck, “Deep neural networks, gradient-boosted trees, random forests: Statistical arbitrage on the S&P 500,” <i>European Journal of Operational Research</i>, vol. 259, no. 2, pp. 689–702, Jun. 2017, doi: 10.1016/j.ejor.2016.10.031.
   </li>
   <li>
-    M. L. De Prado, *Advances in financial machine learning*. New Jersey: Wiley, 2018.
+    M. L. De Prado, <i>Advances in financial machine learning</i>. New Jersey: Wiley, 2018.
   </li>
   <li>
-    M. T. Leung, H. Daouk, and A.-S. Chen, “Forecasting Stock Indices: A Comparison of Classification and Level Estimation Models,” *SSRN Electronic Journal*, 1999, doi: 10.2139/ssrn.200429.
+    M. T. Leung, H. Daouk, and A.-S. Chen, “Forecasting Stock Indices: A Comparison of Classification and Level Estimation Models,” <i>SSRN Electronic Journal</i>, 1999, doi: 10.2139/ssrn.200429.
   </li>
   <li>
-    W. Li *et al*., "StarEmbed: Benchmarking Time Series Foundation models on astronomical observations of variable stars," arXiv:2510.06200 [astro-ph.SR], Oct. 2025. 
+    W. Li <i>et al</i>., "StarEmbed: Benchmarking Time Series Foundation models on astronomical observations of variable stars," arXiv:2510.06200 [astro-ph.SR], Oct. 2025. 
   </li>
   <li>
-   E. C. Bellm *et al*., “The Zwicky Transient Facility: System Overview, performance, and first results,” *Publications of the Astronomical Society of the Pacific*, vol. 131, no. 995, p. 018002, Dec. 2018, doi: 10.1088/1538-3873/aaecbe.
+   E. C. Bellm <i>et al</i>., “The Zwicky Transient Facility: System Overview, performance, and first results,” <i>Publications of the Astronomical Society of the Pacific</i>, vol. 131, no. 995, p. 018002, Dec. 2018, doi: 10.1088/1538-3873/aaecbe.
   </li>
   <li>
-   A. J. Drake *et al*., “THE CATALINA SURVEYS PERIODIC VARIABLE STAR CATALOG,” *The Astrophysical Journal Supplement Series*, vol. 213, no. 1, p. 9, Jun. 2014, doi: 10.1088/0067-0049/213/1/9.
+   A. J. Drake <i>et al</i>., “THE CATALINA SURVEYS PERIODIC VARIABLE STAR CATALOG,” <i>The Astrophysical Journal Supplement Series</i>, vol. 213, no. 1, p. 9, Jun. 2014, doi: 10.1088/0067-0049/213/1/9.
   </li>
   <li>
-   D. W. Scott, *Multivariate density estimation: Theory, Practice, and Visualization*. John Wiley & Sons, 2015.
+   D. W. Scott, <i>Multivariate density estimation: Theory, Practice, and Visualization</i>. John Wiley & Sons, 2015.
   </li>
 
 
