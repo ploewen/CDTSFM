@@ -20,7 +20,7 @@ def make_splits(data):
     n = returns.shape[0]
 
     splits = []
-    if not n < 1000:
+    if n >= 1000:
         n_splits = n // 1000
         for i in range(n_splits):
             lwr = i * 1000
@@ -36,25 +36,27 @@ def make_splits(data):
 # From a 1000 day split make a training and testing set
 # Training set taken from days 1 - 749
 # Testing set taken from days 751 - 1000
+# Make windows that are 81 days long.
+# First 80 days make the input, 81st days makes the output.
 def make_train_test(split):
     windows = []
-    for i in range(729):
-        window = split[i : 20 + i]
+    for i in range(669):
+        window = split[i : 81 + i]
         windows.append(window)
     windows = pd.DataFrame(np.vstack(windows))
 
-    X_train = windows.loc[:, 0:18]
-    y_values = windows.loc[:, 19]
+    X_train = windows.loc[:, 0:79]
+    y_values = windows.loc[:, 80]
     y_train = (y_values > X_train.median(axis=1)).astype(int)
 
     windows = []
-    for i in range(750, 980):
-        window = split[i : 20 + i]
+    for i in range(750, 919):
+        window = split[i : 81 + i]
         windows.append(window)
     windows = pd.DataFrame(np.vstack(windows))
 
-    X_test = windows.loc[:, 0:18]
-    y_values = windows.loc[:, 19]
+    X_test = windows.loc[:, 0:79]
+    y_values = windows.loc[:, 80]
     y_test = (y_values > X_test.median(axis=1)).astype(int)
 
     return (X_train, X_test, y_train, y_test)
@@ -99,7 +101,7 @@ def make_splits_from_data(data):
 
 
 def main():
-    path = "data/raw/SP500"
+    path = "data/raw/SP500/"
     # Cause script to end if required files are not found
     if not os.path.exists(path):
         print(f"\033[31m{'S&P 500 files not found.'}\033[0m")
