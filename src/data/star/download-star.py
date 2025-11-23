@@ -84,13 +84,13 @@ y_test = pd.DataFrame(test["class_str"], columns=["Class"])
 print("Saving data...")
 
 # Save training data
-merged_data.to_parquet(os.path.join(output_path, "star_X_train.parquet"))
-y_merge.to_parquet(os.path.join(output_path, "star_y_train.parquet"))
+merged_data.to_parquet(os.path.join(output_path, "star-X-train.parquet"))
+y_merge.to_parquet(os.path.join(output_path, "star-y-train.parquet"))
 print("Saved training data.")
 
 # Save testing data
-test_data.to_parquet(os.path.join(output_path, "star_X_test.parquet"))
-y_test.to_parquet(os.path.join(output_path, "star_y_test.parquet"))
+test_data.to_parquet(os.path.join(output_path, "star-X-test.parquet"))
+y_test.to_parquet(os.path.join(output_path, "star-y-test.parquet"))
 print("Saved testing data.")
 
 print("Done saving data.")
