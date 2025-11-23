@@ -14,17 +14,17 @@ import os
 import sys
 
 
-# Split the data into sections of 1000 days
+# Split the data into sections of 500 days
 def make_splits(data):
     returns = data.reset_index()["return"]
     n = returns.shape[0]
 
     splits = []
-    if n >= 1000:
-        n_splits = n // 1000
+    if n >= 500:
+        n_splits = n // 500
         for i in range(n_splits):
-            lwr = i * 1000
-            upr = (i + 1) * 1000
+            lwr = i * 500
+            upr = (i + 1) * 500
             split = returns[lwr:upr]
             splits.append(split)
     else:
@@ -40,7 +40,7 @@ def make_splits(data):
 # First 80 days make the input, 81st days makes the output.
 def make_train_test(split):
     windows = []
-    for i in range(669):
+    for i in range(0, 269, 5):
         window = split[i : 81 + i]
         windows.append(window)
     windows = pd.DataFrame(np.vstack(windows))
@@ -50,7 +50,7 @@ def make_train_test(split):
     y_train = (y_values > X_train.median(axis=1)).astype(int)
 
     windows = []
-    for i in range(750, 919):
+    for i in range(350, 419, 5):
         window = split[i : 81 + i]
         windows.append(window)
     windows = pd.DataFrame(np.vstack(windows))
