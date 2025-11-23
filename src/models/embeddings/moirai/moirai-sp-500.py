@@ -102,11 +102,11 @@ def make_moirai_embeddings(SPLIT):
         # Extract embeddings
         raw_emb = embeddings_storage["backbone_output"]
 
-        # Go From [Batch, 5, 384] -> [Batch, 1920]
-        joined_emb = raw_emb.reshape(raw_emb.shape[0], -1)
+        # Go From [Batch, 5, 384] -> [Batch, 384]
+        pooled_emb = raw_emb.mean(dim=1)
 
         # Add pooled embedding to list
-        all_pooled_embeddings.append(joined_emb)
+        all_pooled_embeddings.append(pooled_emb)
 
     # Save the results
     print("Concatenating results...")
