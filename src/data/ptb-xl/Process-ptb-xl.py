@@ -122,16 +122,16 @@ y_test_df = pd.DataFrame(y_test)
 print("Saving files to parquet...")
 
 # Save DataFrames to Parquet files
-X_train_df.to_parquet(os.path.join(output_path, "pcb-xl-X-train.parquet"))
-print("Saved X_train to pcb-xl-X-train.parquet.")
+X_train_df.to_parquet(os.path.join(output_path, "ptb-xl-X-train.parquet"))
+print("Saved X_train to ptb-xl-X-train.parquet.")
 
-X_test_df.to_parquet(os.path.join(output_path, "pcb-xl-X-test.parquet"))
-print("Saved X_test to pcb-xl-X-test.parquet.")
+X_test_df.to_parquet(os.path.join(output_path, "ptb-xl-X-test.parquet"))
+print("Saved X_test to ptb-xl-X-test.parquet.")
 
-y_train_df.to_parquet(os.path.join(output_path, "pcb-xl-y-train.parquet"))
-print("Saved y_train to pcb-xl-y-train.parquet.")
+y_train_df.to_parquet(os.path.join(output_path, "ptb-xl-y-train.parquet"))
+print("Saved y_train to ptb-xl-y-train.parquet.")
 
-y_test_df.to_parquet(os.path.join(output_path, "pcb-xl-y-test.parquet"))
-print("Saved y_test to pcb-xl-y-test.parquet.")
+y_test_df.to_parquet(os.path.join(output_path, "ptb-xl-y-test.parquet"))
+print("Saved y_test to ptb-xl-y-test.parquet.")
 
 print("Done saving files.")
