@@ -29,7 +29,8 @@ if not os.path.exists(path):
 print("Processing files...")
 
 
-sr = 8000  # Resample to 8 kHz
+sr = 16000  # Resample to 8 kHz
+expected_length = sr * 5
 data = []
 folds = []
 targets = []
@@ -58,18 +59,18 @@ X_test = X[folds == test_fold]
 y_test = Y[folds == test_fold]
 
 # Data tests to check files are the right shape
-if not (X_train.shape == (1600, 40000)):
+if not (X_train.shape == (1600, expected_length)):
     print(
         f"\033[31m{'X train data has the wrong shape. '}\033[0m\033[31m{X_train.shape}\033[0m"
     )
-    print(f"\033[31m{'Shape should be  be (1600, 40000)'}\033[0m")
+    print(f"\033[31m{'Shape should be  be (1600, '}{expected_length}{')'}\033[0m")
     sys.exit(1)
 
-if not (X_test.shape == (400, 40000)):
+if not (X_test.shape == (400, expected_length)):
     print(
         f"\033[31m{'X test data has the wrong shape. '}\033[0m\033[31m{X_test.shape}\033[0m"
     )
-    print(f"\033[31m{'Shape should be  be (400, 40000)'}\033[0m")
+    print(f"\033[31m{'Shape should be  be (400, '}{expected_length}{')'}\033[0m")
     sys.exit(1)
 
 if not (y_train.shape == (1600, 1)):
