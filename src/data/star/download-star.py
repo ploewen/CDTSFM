@@ -65,7 +65,7 @@ val = pl.read_parquet("hf://datasets/123anonymous123/StarEmbed/" + splits["valid
 print("Making dataframes...")
 
 # If raw data folder does not exist, create it
-output_path = "data/processed/star"
+output_path = "data/raw/star"
 if not os.path.exists(output_path):
     os.makedirs(output_path)
 
