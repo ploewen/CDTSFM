@@ -1,8 +1,8 @@
 # Purpose:
-# Makes Moirai embeddings for S&P 500, ESC 50, PTB XL Datasets.
+# Makes Moirai embeddings for StarEmbed data.
 
 # Pre-requisites:
-# - Requires running process-SP-500.py, process-esc-50.py, process-ptb-xl.py
+# - Requires running process-star.py
 
 # Authors:
 # - Code written by Philip Loewen
@@ -16,6 +16,7 @@ import torch
 import numpy as np
 from uni2ts.model.moirai2 import Moirai2Module
 from tqdm import tqdm
+import os
 
 # Set the device to use GPU of possible
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -26,14 +27,8 @@ model.to(device)
 model.eval()
 
 
-def make_data_embeddings(data, batch_size, seq_len):
+def make_data_embeddings(data):
     PATCH_SIZE = 16  # Fixed by Model
-
-    # Adjust SEQ_LEN to be divisible by PATCH_SIZE for the model
-    if seq_len % PATCH_SIZE != 0:
-        pad_len = PATCH_SIZE - (seq_len % PATCH_SIZE)
-        seq_len += pad_len
-        print(f"Adjusted sequence_length to {seq_len} to fit patch size.")
 
     for split in ["train", "test"]:
         print(f"\nProcessing {data}-{split} on {device}...")
@@ -47,18 +42,15 @@ def make_data_embeddings(data, batch_size, seq_len):
             print(f"Skipping {INPUT_PATH} (File not found)")
             continue
 
-        all_pooled_embeddings = make_split_embeddings(
-            batch_size, PATCH_SIZE, seq_len, X_df
-        )
+        all_pooled_embeddings = make_split_embeddings(PATCH_SIZE, X_df)
 
         # Save the results
         print("Concatenating results...")
         save_embeddings(OUTPUT_PATH, X_df, all_pooled_embeddings)
 
 
-def make_split_embeddings(batch_size, patch_size, seq_len, X_df):
-    X_arr = X_df.values
-
+def make_split_embeddings(patch_size, X_df):
+    X_arr = X_df["target"]
     # Hook storage
     embeddings_storage = {}
 
@@ -69,18 +61,12 @@ def make_split_embeddings(batch_size, patch_size, seq_len, X_df):
     # Get all the embeddings into a list
     all_pooled_embeddings = []
 
-    # Calculate number of patches for reshaping
-    num_patches = seq_len // patch_size
-
     print("Making embeddings...")
-    # Loop through data in chunks
-    for i in tqdm(range(0, len(X_arr), batch_size)):
-        make_batch_embeddings(
+    # Loop through data by row
+    for i in tqdm(range(0, X_arr.shape[0])):
+        make_row_embeddings(
             X_arr,
             i,
-            batch_size,
-            seq_len,
-            num_patches,
             patch_size,
             embeddings_storage,
             all_pooled_embeddings,
@@ -89,17 +75,14 @@ def make_split_embeddings(batch_size, patch_size, seq_len, X_df):
     return all_pooled_embeddings
 
 
-def make_batch_embeddings(
+def make_row_embeddings(
     X_arr,
     i,
-    batch_size,
-    seq_len,
-    num_patches,
     patch_size,
     embeddings_storage,
     all_pooled_embeddings,
 ):
-    inputs = prepare_inputs(X_arr, i, batch_size, seq_len, num_patches, patch_size)
+    inputs = prepare_inputs(X_arr, i, patch_size)
 
     # Pass our inputs into the model
     with torch.no_grad():
@@ -115,11 +98,19 @@ def make_batch_embeddings(
     all_pooled_embeddings.append(pooled_emb)
 
 
-def prepare_inputs(X_arr, i, batch_size, seq_len, num_patches, patch_size):
+def prepare_inputs(X_arr, i, patch_size):
+    # Adjust SEQ_LEN to be divisible by PATCH_SIZE for the model
+    batch_raw = X_arr[i]
+    current_len = len(batch_raw)
+    if current_len % patch_size != 0:
+        pad_len = patch_size - (current_len % patch_size)
+        seq_len = current_len + pad_len
+    else:
+        seq_len = current_len
+
+    num_patches = seq_len // patch_size
     # Prepare batch
-    batch_raw = X_arr[i : i + batch_size]
-    current_bs = len(batch_raw)
-    current_len = batch_raw.shape[1]
+    current_bs = 1
 
     padded_batch = get_padded(current_len, seq_len, batch_raw)
 
@@ -161,10 +152,10 @@ def get_padded(current_len, seq_len, batch_raw):
     if current_len < seq_len:
         pad_width = seq_len - current_len
         padded_batch = np.pad(
-            batch_raw, ((0, 0), (0, pad_width)), "constant", constant_values=0
+            batch_raw, ((0, pad_width)), "constant", constant_values=0
         )
     elif current_len > seq_len:
-        padded_batch = batch_raw[:, :seq_len]
+        padded_batch = batch_raw[:seq_len]
     else:
         padded_batch = batch_raw
     return padded_batch
@@ -172,12 +163,20 @@ def get_padded(current_len, seq_len, batch_raw):
 
 def save_embeddings(output_path, X_df, all_pooled_embeddings):
     final_tensor = torch.cat(all_pooled_embeddings, dim=0)
-    final_array = final_tensor.numpy()
+
+    concatenated_tensor = final_tensor.reshape(-1, 2 * final_tensor.shape[-1])
+
+    # Create a new index, taking the index of the first row in each pair
+    new_index = X_df.index[::2][: concatenated_tensor.shape[0]]
+
+    final_array = concatenated_tensor.cpu().numpy()
 
     print(f"Creating DataFrame with shape {final_array.shape}...")
     # Create Column Names
     cols = [f"emb_{i}" for i in range(final_array.shape[1])]
-    emb_df = pd.DataFrame(final_array, columns=cols, index=X_df.index)
+    emb_df = pd.DataFrame(final_array, columns=cols, index=new_index)
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     emb_df.to_parquet(output_path, compression="zstd")
     print(f"Successfully saved to {output_path}")
@@ -191,6 +190,4 @@ def get_embeddings(embeddings_storage, name):
 
 
 if __name__ == "__main__":
-    make_data_embeddings("SP-500", batch_size=64, seq_len=80)
-    make_data_embeddings("ESC-50", batch_size=1, seq_len=80000)
-    make_data_embeddings("ptb-xl", batch_size=16, seq_len=12000)
+    make_data_embeddings("star")
