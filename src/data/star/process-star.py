@@ -1,6 +1,6 @@
 # Purpose:
 # Pads StarEmbed dataset.
-# Stacks green and red lightwave data.
+# Stacks green and red light wave data.
 # Saves datasets.
 
 # Authors:
@@ -51,14 +51,13 @@ def pad_series(data):
     return copy
 
 
-for split in ["train", "test"]:
+for split in ["test", "train"]:
     df = pd.read_parquet(f"data/raw/star/star-X-{split}.parquet")
     print(f"Processing {split}ing data...")
     n = df.shape[0]
     new_data = {}
     processed_rows = [
-        pad_series(df.iloc[i])
-        for i in tqdm(range(n), desc=f"Processing {split} rows...")
+        pad_series(df.iloc[i]) for i in tqdm(range(n), desc="Processing rows")
     ]
 
     final_data = pd.DataFrame(processed_rows)
@@ -72,6 +71,15 @@ for split in ["train", "test"]:
 
     # Convert the resulting Series to a DataFrame with a single 'target' column
     stacked_data = all_targets.to_frame(name="target")
+
+    expected_length = n * 2
+    expected_width = 1
+    expected_shape = (expected_length, expected_width)
+    actual_shape = stacked_data.shape
+
+    assert actual_shape == expected_shape, (
+        f"Data has shape {actual_shape} but expected {expected_shape}."
+    )
 
     output_path = f"data/processed/star/star-X-{split}.parquet"
 
