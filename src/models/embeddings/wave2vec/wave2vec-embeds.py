@@ -1,4 +1,4 @@
-from transformers import AutoFeatureExtractor, Wav2Vec2Model
+from transformers import AutoProcessor, Wav2Vec2Model
 import torch
 import pandas as pd
 import numpy as np
@@ -6,7 +6,7 @@ from tqdm import tqdm
 import os
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-processor = AutoFeatureExtractor.from_pretrained("facebook/wav2vec2-base-960h")
+processor = AutoProcessor.from_pretrained("facebook/wav2vec2-base-960h")
 model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base-960h").to(device)
 
 
@@ -55,6 +55,6 @@ def make_data_embeddings(data, batch_size=8):
 
 
 if __name__ == "__main__":
-    make_data_embeddings("ESC-50", 8)
+    # make_data_embeddings("ESC-50", 8)
     make_data_embeddings("ptb-xl", 8)
     make_data_embeddings("SP-500", 64)
