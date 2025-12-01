@@ -17,7 +17,7 @@ from ffm.pytorch_patched_decoder_MOE import (
 )
 
 # CONFIG
-NUM_WORKERS = 2
+NUM_WORKERS = 1
 CHUNK_SIZE = 2500
 SEQUENCE_LENGTH = 32
 # We load 2500 rows at a time to save on memory
@@ -49,36 +49,28 @@ class PatchedTimeSeriesEmbeddingGenerator(PatchedTimeSeriesDecoder_MOE):
         return model_output
 
 
-# Dataset for dataloader
-class TimeSeriesDataset(Dataset):
-    def __init__(self, df, sequence_len=32):
+class RaggedDataset(Dataset):
+    def __init__(self, df):
+        self.data = [torch.tensor(series) for series in df.iloc[:, 0]]
         self.indices = df.index.tolist()
-        self.vals = df.values.astype(np.float32)
-        self.n_samples, self.m_features = self.vals.shape
-        self.sequence_len = sequence_len
-        _, r = divmod(self.m_features, sequence_len)
-        self.pad_width = 0 if r == 0 else (sequence_len - r)
 
     def __len__(self):
-        return self.n_samples
+        return len(self.data)
 
     def __getitem__(self, idx):
-        row = self.vals[idx]
-        observed = np.ones_like(row)
+        # Returns a single, unpadded tensor
+        return {"vals": self.data[idx], "index": self.indices[idx]}
 
-        if self.pad_width > 0:
-            pad = np.zeros(self.pad_width, dtype=np.float32)
-            padded_row = np.concatenate([pad, row])
-            padded_mask = np.concatenate([pad, observed])
-        else:
-            padded_row = row
-            padded_mask = observed
 
-        return {
-            "vals": torch.tensor(padded_row, dtype=torch.float32),
-            "mask": torch.tensor(padded_mask, dtype=torch.float32),
-            "index": self.indices[idx],
-        }
+# Define the padding function
+def pad_sequence(batch):
+    row = batch[0]["vals"]
+    m = row.shape[0]
+    _, r = divmod(m, SEQUENCE_LENGTH)
+    pad_length = (SEQUENCE_LENGTH - r) % SEQUENCE_LENGTH
+    pad = torch.zeros(pad_length)
+    padded_sequence = torch.hstack((pad, row)).reshape((1, m + pad_length))
+    return {"vals": padded_sequence, "index": batch[0]["index"]}
 
 
 def make_embeddings(data, batch_size, device, model):
@@ -101,7 +93,14 @@ def make_embeddings(data, batch_size, device, model):
 
         for chunk_idx, batch_chunk in enumerate(chunk_iterator):
             make_chunk_embeddings(
-                batch_chunk, batch_size, chunk_idx, model, output_path, cols, writer
+                batch_chunk,
+                batch_size,
+                chunk_idx,
+                model,
+                output_path,
+                cols,
+                writer,
+                device,
             )
 
         if writer:
@@ -114,7 +113,7 @@ def make_embeddings(data, batch_size, device, model):
 def get_data(data, split):
     print(f"\nProcessing {data}-{split}...")
     input_path = f"data/processed/{data}/{data}-X-{split}.parquet"
-    output_path = f"data/embeddings/{data}-FinCast-{data}-{split}.parquet"
+    output_path = f"data/embeddings/{data}/FinCast-{data}-{split}.parquet"
 
     # Ensure output directory exists and remove file if it already exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -127,19 +126,20 @@ def get_data(data, split):
 
 
 def make_chunk_embeddings(
-    batch_chunk, batch_size, chunk_idx, model, OUTPUT_PATH, cols, writer
+    batch_chunk, batch_size, chunk_idx, model, OUTPUT_PATH, cols, writer, device
 ):
     # Convert only this chunk to Pandas
     X_df_chunk = batch_chunk.to_pandas()
 
     # Create Dataset/Loader for JUST this chunk
-    dataset = TimeSeriesDataset(X_df_chunk, sequence_len=SEQUENCE_LENGTH)
+    dataset = RaggedDataset(X_df_chunk)
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=NUM_WORKERS,
         pin_memory=True,
+        collate_fn=pad_sequence,
     )
 
     # Run Inference on this chunk
@@ -155,9 +155,17 @@ def make_chunk_embeddings(
 
 
 def make_batch_embeddings(device, model, OUTPUT_PATH, writer, cols, batch):
-    batch_vals = batch["vals"].to(device, non_blocking=True)
-    batch_mask = batch["mask"].to(device, non_blocking=True)
+    batch_vals = batch["vals"].to(device, dtype=torch.float32, non_blocking=True)
+    batch_mask = torch.ones_like(batch_vals)
+
+    batch_mask = (batch_vals != 0).type_as(batch_vals)
+
     batch_indices = batch["index"]
+
+    batch_freq = torch.zeros(batch_vals.shape[0], dtype=torch.long, device=device)
+
+    if not isinstance(batch_indices, list):
+        batch_indices = [batch_indices]
 
     batch_freq = torch.zeros(batch_vals.shape[0], dtype=torch.long, device=device)
 
@@ -169,7 +177,6 @@ def make_batch_embeddings(device, model, OUTPUT_PATH, writer, cols, batch):
         embeddings = model(batch_vals, batch_mask, batch_freq)
 
     aggregated_embeddings = embeddings.mean(dim=1).cpu()
-
     final_array = aggregated_embeddings.numpy()
 
     # Create column names on the first pass
@@ -235,6 +242,4 @@ if __name__ == "__main__":
     embedder.to(device)
     embedder.eval()
 
-    make_embeddings("ptb-xl", batch_size=32, device=device, model=embedder)
-    make_embeddings("esc-50", batch_size=2, device=device, model=embedder)
-    make_embeddings("SP-500", batch_size=256, device=device, model=embedder)
+    make_embeddings("star", batch_size=1, device=device, model=embedder)
