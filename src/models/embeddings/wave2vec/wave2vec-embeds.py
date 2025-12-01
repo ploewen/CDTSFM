@@ -14,7 +14,7 @@ def make_data_embeddings(data, batch_size=8):
     for split in ["train", "test"]:
         print(f"\nProcessing {data}-{split} on {device}...")
         INPUT_PATH = f"data/processed/{data}/{data}-X-{split}.parquet"
-        OUTPUT_PATH = f"data/embeddings/{data}/W2V-{split}.parquet"
+        OUTPUT_PATH = f"data/embeddings/{data}/W2V-{data}-{split}.parquet"
 
         X_df = pd.read_parquet(INPUT_PATH)
         X_np = X_df.values

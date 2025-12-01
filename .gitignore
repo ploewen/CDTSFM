@@ -12,6 +12,7 @@ wheels/
 # Data folder
 data/
 !src/data/
+weights/
 
 
 README_files/

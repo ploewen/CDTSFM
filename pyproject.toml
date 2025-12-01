@@ -6,17 +6,23 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "astromer>=0.1.8",
+    "beartype==0.20.2",
+    "colt5-attention>=0.11.1",
     "einops>=0.8.1",
+    "einx==0.3.0",
     "fastparquet>=2024.11.0",
+    "fincast",
     "gluonts>=0.16.2",
     "huggingface-hub>=0.36.0",
+    "jax>=0.4.34",
     "jaxtyping>=0.3.3",
     "librosa>=0.11.0",
     "lightning>=2.5.6",
     "lxml>=6.0.2",
-    "matplotlib>=3.10.7",
+    "matplotlib==3.10.1",
     "mlcroissant>=1.0.22",
-    "pandas>=2.3.3",
+    "packages>=0.1.0",
+    "pandas==2.2.3",
     "polars>=1.35.2",
     "pyarrow>=22.0.0",
     "requests>=2.32.5",
@@ -25,13 +31,22 @@ dependencies = [
     "tensorflow-macos==2.14.0",
     "timesfm",
     "tokenizers>=0.22.1",
-    "torch>=2.9.1",
+    "torch==2.5.0",
     "tqdm>=4.67.1",
     "transformers>=4.57.3",
+    "utilsforecast==0.2.12",
     "wfdb>=4.3.0",
     "wikipedia>=1.4.0",
-    "yfinance>=0.2.66",
+    "yfinance==0.2.55",
 ]
 
 [tool.uv.sources]
 timesfm = { git = "https://github.com/google-research/timesfm.git" }
+fincast = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "packages/fincast",
+    "fincast",
+    "fincast/src/ffm",
+]
