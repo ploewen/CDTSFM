@@ -1,3 +1,17 @@
+# Purpose:
+# Makes FinCast embeddings for S&P 500, ESC 50, PTB XL Datasets.
+
+# Pre-requisites:
+# - Requires running process-SP-500.py, process-esc-50.py, process-ptb-xl.py
+
+# Authors:
+# - Code written by Philip Loewen
+
+# Reference:
+# Z. Zhu, H. Chen, Q. Qu, and V. Chung,
+# “FINCAST: a foundation model for Financial Time-Series Forecasting,”
+# arXiv (Cornell University), Aug. 2025, doi: 10.48550/arxiv.2508.19609.
+
 import torch
 import pandas as pd
 import numpy as np
@@ -27,6 +41,13 @@ SEQUENCE_LENGTH = 32
 # class. The forward method has been modified to forego the postprocessing of embeddings
 # which generated predictions.
 class PatchedTimeSeriesEmbeddingGenerator(PatchedTimeSeriesDecoder_MOE):
+    """
+    A time-series embedding generator adapted from the PatchedTimeSeriesDecoder_MOE class.
+
+    This class modifies the forward pass to return the model's internal embeddings
+    before the final prediction head, making it suitable for feature extraction.
+    """
+
     def __init__(self, config: FFMConfig):
         super().__init__(config)
 
@@ -51,6 +72,18 @@ class PatchedTimeSeriesEmbeddingGenerator(PatchedTimeSeriesDecoder_MOE):
 
 # Dataset for dataloader
 class TimeSeriesDataset(Dataset):
+    """
+    A PyTorch Dataset for handling time-series data, including padding.
+
+    This dataset prepares time-series data for input into a model by handling
+    padding to a specified `sequence_len` and converting data to `torch.float32`.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame containing time-series data.
+        sequence_len (int, optional): The desired sequence length for padding.
+                                     Defaults to 32.
+    """
+
     def __init__(self, df, sequence_len=32):
         self.indices = df.index.tolist()
         self.vals = df.values.astype(np.float32)
@@ -82,6 +115,19 @@ class TimeSeriesDataset(Dataset):
 
 
 def make_embeddings(data, batch_size, device, model):
+    """
+    Generates and saves FinCast embeddings for a given dataset.
+
+    This function iterates through the 'test' and 'train' splits of the specified
+    dataset, processes data in chunks, and generates embeddings using the provided
+    model.
+
+    Args:
+        data (str): The name of the dataset (e.g., "star").
+        batch_size (int): The batch size to use for the DataLoader.
+        device (torch.device): The device (CPU or CUDA) to run the model on.
+        model (PatchedTimeSeriesEmbeddingGenerator): The FinCast embedding model.
+    """
     for split in ["test", "train"]:
         try:
             output_path, parquet_file = get_data(data, split)
@@ -112,6 +158,20 @@ def make_embeddings(data, batch_size, device, model):
 
 
 def get_data(data, split):
+    """
+    Constructs input and output file paths and opens a Parquet file for reading.
+
+    Args:
+        data (str): The name of the dataset.
+        split (str): The data split (e.g., "test" or "train").
+
+    Returns:
+        Tuple[str, pq.ParquetFile]: A tuple containing the output file path
+        and an opened ParquetFile object.
+
+    Raises:
+        FileNotFoundError: If the input Parquet file does not exist.
+    """
     print(f"\nProcessing {data}-{split}...")
     input_path = f"data/processed/{data}/{data}-X-{split}.parquet"
     output_path = f"data/embeddings/{data}/FinCast-{data}-{split}.parquet"
@@ -129,6 +189,18 @@ def get_data(data, split):
 def make_chunk_embeddings(
     batch_chunk, batch_size, chunk_idx, model, OUTPUT_PATH, cols, writer
 ):
+    """
+    Processes a chunk of data to generate and save FinCast embeddings.
+
+    Args:
+        batch_chunk (pa.RecordBatch): A chunk of data as a PyArrow RecordBatch.
+        batch_size (int): The batch size for the DataLoader.
+        chunk_idx (int): The index of the current chunk.
+        model (PatchedTimeSeriesEmbeddingGenerator): The FinCast embedding model.
+        OUTPUT_PATH (str): The path to the output Parquet file.
+        cols (list): A list of column names for the embeddings.
+        writer (pq.ParquetWriter): The Parquet writer object.
+    """
     # Convert only this chunk to Pandas
     X_df_chunk = batch_chunk.to_pandas()
 
@@ -155,6 +227,20 @@ def make_chunk_embeddings(
 
 
 def make_batch_embeddings(device, model, OUTPUT_PATH, writer, cols, batch):
+    """
+    Generates embeddings for a single batch of data and writes them to a Parquet file.
+
+    Args:
+        device (torch.device): The device (CPU or CUDA) to run the model on.
+        model (PatchedTimeSeriesEmbeddingGenerator): The FinCast embedding model.
+        OUTPUT_PATH (str): The path to the output Parquet file.
+        writer (pq.ParquetWriter): The Parquet writer object.
+        cols (list): A list of column names for the embeddings.
+        batch (dict): A dictionary containing the batch values and indices.
+
+    Returns:
+        pq.ParquetWriter: The updated Parquet writer object.
+    """
     batch_vals = batch["vals"].to(device, non_blocking=True)
     batch_mask = batch["mask"].to(device, non_blocking=True)
     batch_indices = batch["index"]
