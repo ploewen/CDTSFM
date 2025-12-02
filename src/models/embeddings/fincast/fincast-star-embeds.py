@@ -1,27 +1,13 @@
-# Purpose:
-# Makes FinCast embeddings for StarEmbed data.
-
-# Pre-requisites:
-# - Requires running process-star.py, fincast-setup.sh,
-
-# Authors:
-# - Code written by Philip Loewen
-
-# Reference:
-# Z. Zhu, H. Chen, Q. Qu, and V. Chung,
-# “FINCAST: a foundation model for Financial Time-Series Forecasting,”
-# arXiv (Cornell University), Aug. 2025, doi: 10.48550/arxiv.2508.19609.
-
 import torch
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-import numpy as np
 import os
 from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset
 from typing import Tuple
 import gc
+import numpy as np
 
 # Import your model components
 from ffm.pytorch_patched_decoder_MOE import (
@@ -31,13 +17,9 @@ from ffm.pytorch_patched_decoder_MOE import (
 )
 
 # --- CONFIGURATION ---
-# CPU workers for data loading (set to 0 for debugging, 4+ for speed)
-NUM_WORKERS = 4
-# Rows to read from Parquet at once (RAM dependent)
+NUM_WORKERS = 4  # Increased for data loading speed
 CHUNK_SIZE = 5000
-# Rows to feed to GPU at once (VRAM dependent)
-BATCH_SIZE = 16
-# Patch length for the Transformer
+BATCH_SIZE = 128
 SEQUENCE_LENGTH = 32
 
 
@@ -48,12 +30,6 @@ class PatchedTimeSeriesEmbeddingGenerator(PatchedTimeSeriesDecoder_MOE):
     """
 
     def __init__(self, config: FFMConfig):
-        """
-        Initializes the PatchedTimeSeriesEmbeddingGenerator.
-
-        Args:
-            config (FFMConfig): Configuration object for the FFM model.
-        """
         super().__init__(config)
 
     def forward(
@@ -61,18 +37,7 @@ class PatchedTimeSeriesEmbeddingGenerator(PatchedTimeSeriesDecoder_MOE):
         input_ts: torch.Tensor,
         input_padding: torch.LongTensor,
         freq: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass to generate time-series embeddings.
-
-        Args:
-            input_ts (torch.Tensor): Input time series tensor.
-            input_padding (torch.LongTensor): Padding tensor for the input.
-            freq (torch.Tensor): Frequency tensor.
-
-        Returns:
-            Tuple[torch.Tensor, torch.Tensor]: A tuple containing the model output (embeddings).
-        """
+    ) -> torch.Tensor:
         model_input, patched_padding, _, _ = self._preprocess_input(
             input_ts=input_ts,
             input_padding=input_padding,
@@ -87,41 +52,14 @@ class PatchedTimeSeriesEmbeddingGenerator(PatchedTimeSeriesDecoder_MOE):
 
 
 class RaggedDataset(Dataset):
-    """
-    Optimized Dataset that holds references to numpy arrays instead of
-    converting to Torch tensors immediately.
-    """
-
     def __init__(self, df):
-        """
-        Initializes the RaggedDataset.
-
-        Args:
-            df (pd.DataFrame): Input DataFrame containing the data.
-        """
         self.data = df.iloc[:, 0].values
         self.indices = df.index.tolist()
 
     def __len__(self):
-        """
-        Returns the number of items in the dataset.
-
-        Returns:
-            int: The number of items.
-        """
         return len(self.data)
 
     def __getitem__(self, idx):
-        """
-        Retrieves an item from the dataset at the specified index.
-
-        Args:
-            idx (int): The index of the item to retrieve.
-
-        Returns:
-            dict: A dictionary containing the values and index for the item.
-        """
-        # Convert to tensor only when requested by DataLoader
         return {
             "vals": torch.tensor(self.data[idx], dtype=torch.float32),
             "index": self.indices[idx],
@@ -129,33 +67,17 @@ class RaggedDataset(Dataset):
 
 
 def pad_sequence(batch):
-    """
-    Pads a BATCH of ragged sequences to the longest sequence in the batch,
-    ensuring the length is a multiple of SEQUENCE_LENGTH (32).
-
-    Args:
-        batch (list): A list of dictionaries, where each dictionary contains
-            "vals" (torch.Tensor) and "index" (int).
-
-    Returns:
-        dict: A dictionary containing the padded sequences ("vals") and their
-            corresponding original indices ("index").
-    """
-    # Separate values and indices
     sequences = [item["vals"] for item in batch]
     indices = [item["index"] for item in batch]
 
-    # Find max length in this batch
     max_len = max(s.size(0) for s in sequences)
 
-    # Calculate target length (must be multiple of 32 for the patcher)
     remainder = max_len % SEQUENCE_LENGTH
     if remainder != 0:
         target_len = max_len + (SEQUENCE_LENGTH - remainder)
     else:
         target_len = max_len
 
-    # Pad and Stack
     padded_batch = []
     for seq in sequences:
         pad_size = target_len - seq.size(0)
@@ -167,69 +89,34 @@ def pad_sequence(batch):
             padded_seq = seq
         padded_batch.append(padded_seq)
 
-    # Stack into (Batch_Size, Time_Steps)
     return {"vals": torch.stack(padded_batch), "index": indices}
 
 
 def make_embeddings(data, batch_size, device, model):
-    """
-    Generates and saves FinCast embeddings for a given dataset.
-
-    Args:
-        data (str): The name of the dataset (e.g., "star").
-        batch_size (int): The number of rows to feed to the GPU at once.
-        device (torch.device): The device (e.g., 'cuda' or 'cpu') on which to
-            run the model.
-        model (torch.nn.Module): The embedding model that accepts time-series
-            values, a mask, and frequencies as input.
-    """
     for split in ["test", "train"]:
         try:
-            output_path, parquet_file = get_data(data, split)
+            output_path, input_path = get_data(data, split)
         except FileNotFoundError:
             print(f"File not found: {data}-{split}, skipping...")
             continue
 
-        writer = None
-        cols = None
+        # Read entire parquet file into a Pandas DataFrame
+        print(f"Reading {input_path}...")
+        X_df_full = pd.read_parquet(input_path)
 
-        total_rows = parquet_file.metadata.num_rows
-        print(f"Total rows: {total_rows}. Processing in chunks of {CHUNK_SIZE}...")
-
-        chunk_iterator = parquet_file.iter_batches(batch_size=CHUNK_SIZE)
-
-        for chunk_idx, batch_chunk in enumerate(chunk_iterator):
-            writer = make_chunk_embeddings(
-                batch_chunk,
-                batch_size,
-                chunk_idx,
-                model,
-                output_path,
-                cols,
-                writer,
-                device,
-            )
-
-        if writer:
-            writer.close()
+        make_all_embeddings(
+            X_df_full,
+            batch_size,
+            model,
+            output_path,
+            device,
+        )
 
         print(f"Successfully saved to {output_path}")
         gc.collect()
 
 
 def get_data(data, split):
-    """
-    Constructs input and output paths and prepares the Parquet file for reading.
-
-    Args:
-        data (str): The name of the dataset (e.g., "star").
-        split (str): The data split (e.g., "train", "test").
-
-    Returns:
-        tuple: A tuple containing:
-            - output_path (str): The path to the output embeddings file.
-            - parquet_file (pyarrow.parquet.ParquetFile): The Parquet file object for the input data.
-    """
     print(f"\nProcessing {data}-{split}...")
     input_path = f"data/processed/{data}/{data}-X-{split}.parquet"
     output_path = f"data/embeddings/{data}/FinCast-{data}-{split}.parquet"
@@ -238,34 +125,14 @@ def get_data(data, split):
     if os.path.exists(output_path):
         os.remove(output_path)
 
-    parquet_file = pq.ParquetFile(input_path)
-    return output_path, parquet_file
+    if not os.path.exists(input_path):
+        raise FileNotFoundError
+
+    return output_path, input_path
 
 
-def make_chunk_embeddings(
-    batch_chunk, batch_size, chunk_idx, model, OUTPUT_PATH, cols, writer, device
-):
-    """
-    Processes a chunk of data to generate and save embeddings.
-
-    Args:
-        batch_chunk (pyarrow.RecordBatch): A chunk of data from a Parquet file.
-        batch_size (int): The number of rows to feed to the GPU at once.
-        chunk_idx (int): The index of the current chunk.
-        model (torch.nn.Module): The embedding model.
-        OUTPUT_PATH (str): The path to the output Parquet file.
-        cols (list[str] or None): Column names for the embeddings. None for the first batch.
-        writer (pyarrow.parquet.ParquetWriter or None): The Parquet writer object. None for the first batch.
-        device (torch.device): The device (e.g., 'cuda' or 'cpu') on which to
-            run the model.
-
-    Returns:
-        pyarrow.parquet.ParquetWriter: The Parquet writer instance.
-    """
-    # Convert only this chunk to Pandas
-    X_df_chunk = batch_chunk.to_pandas()
-
-    dataset = RaggedDataset(X_df_chunk)
+def make_all_embeddings(X_df_full, batch_size, model, OUTPUT_PATH, device):
+    dataset = RaggedDataset(X_df_full)
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
@@ -275,47 +142,33 @@ def make_chunk_embeddings(
         collate_fn=pad_sequence,
     )
 
+    writer = None
+    schema = None  # Used to lock the schema after the first batch
+
+    # Counter for GC
+    batch_counter = 0
+
     with torch.no_grad():
-        for batch in tqdm(dataloader, desc=f"Chunk {chunk_idx + 1}", leave=False):
-            writer = make_batch_embeddings(
-                device, model, OUTPUT_PATH, writer, cols, batch
+        for batch in tqdm(dataloader, desc="Processing embeddings", leave=False):
+            writer, schema = make_batch_embeddings(
+                device, model, OUTPUT_PATH, writer, schema, batch
             )
 
-    return writer
+            batch_counter += 1
+            if batch_counter % 10 == 0:
+                gc.collect()
+
+    if writer:
+        writer.close()
 
 
-def make_batch_embeddings(device, model, OUTPUT_PATH, writer, cols, batch):
-    """Generates and writes embeddings for a single batch to a Parquet file.
-
-    Args:
-        device (torch.device): The device (e.g., 'cuda' or 'cpu') on which to
-            run the model.
-        model (torch.nn.Module): The embedding model that accepts time-series
-            values, a mask, and frequencies as input.
-        OUTPUT_PATH (str): The path to the output Parquet file.
-        writer (pyarrow.parquet.ParquetWriter or None): The writer object for the
-            Parquet file. Pass None for the first batch.
-        cols (list[str] or None): A list of column names for the embeddings.
-            Pass None for the first batch to auto-generate them.
-        batch (dict): A dictionary containing the batch data with keys:
-            - "vals" (torch.Tensor): A tensor of shape (Batch_Size, Time_Steps)
-              containing the time-series values. Padded values must be 0.
-            - "index": An array-like object containing the unique identifiers
-              for each time series in the batch, used for the output index.
-
-    Returns:
-        pyarrow.parquet.ParquetWriter: The Parquet writer instance, which should be
-            passed to the next call to continue writing to the same file.
+def make_batch_embeddings(device, model, OUTPUT_PATH, writer, schema, batch):
     """
-    # batch["vals"] is now (Batch_Size, Time_Steps)
+    Generates and writes embeddings, ensuring Schema consistency across batches.
+    """
     batch_vals = batch["vals"].to(device, dtype=torch.float32, non_blocking=True)
-
-    # Mask: 1 for data, 0 for padding
     batch_mask = (batch_vals != 0).type_as(batch_vals)
-
     batch_indices = batch["index"]
-
-    # Frequencies: (Batch_Size,)
     batch_freq = torch.zeros(batch_vals.shape[0], dtype=torch.long, device=device)
 
     # Inference
@@ -325,23 +178,47 @@ def make_batch_embeddings(device, model, OUTPUT_PATH, writer, cols, batch):
     else:
         embeddings = model(batch_vals, batch_mask, batch_freq)
 
-    # Aggregate: Mean over time dimension -> (Batch_Size, Hidden_Dim)
-    aggregated_embeddings = embeddings.mean(dim=1).cpu()
+    # Aggregate: Mean over time dimension
+    # CRITICAL FIX: Force to float32 immediately to prevent "halffloat" schema issues
+    aggregated_embeddings = embeddings.mean(dim=1).float().cpu()
     final_array = aggregated_embeddings.numpy()
 
-    # Create column names on the first pass
-    if writer is None and cols is None:
-        cols = [f"emb_{j}" for j in range(final_array.shape[1])]
+    # --- ROW CONCATENATION LOGIC ---
+    # Concatenate every two rows (StarEmbed logic)
+    if final_array.shape[0] % 2 != 0:
+        # Pad with zeros if odd number of rows
+        final_array = np.vstack(
+            [final_array, np.zeros((1, final_array.shape[1]), dtype=np.float32)]
+        )
+        batch_indices.append(batch_indices[-1])  # Duplicate last index
 
-    emb_df = pd.DataFrame(final_array, columns=cols, index=batch_indices)
-    table = pa.Table.from_pandas(emb_df)
+    # Reshape: (Batch/2, Hidden*2)
+    concatenated_array = final_array.reshape(final_array.shape[0] // 2, -1)
+    concatenated_indices = [batch_indices[i] for i in range(0, len(batch_indices), 2)]
 
-    # Initialize writer on the first pass
+    # Generate column names if not done yet
+    cols = [f"emb_{j}" for j in range(concatenated_array.shape[1])]
+
+    # Create DataFrame
+    emb_df = pd.DataFrame(concatenated_array, columns=cols, index=concatenated_indices)
+
+    # Convert to PyArrow Table
+    if schema is not None:
+        # For batch 2+, enforce the schema from batch 1
+        # This fixes the "vs file" error by ensuring metadata/types match exactly
+        table = pa.Table.from_pandas(emb_df, schema=schema)
+    else:
+        # For batch 1, infer schema
+        table = pa.Table.from_pandas(emb_df)
+        schema = table.schema
+
+    # Initialize writer if first batch
     if writer is None:
-        writer = pq.ParquetWriter(OUTPUT_PATH, table.schema, compression="zstd")
+        writer = pq.ParquetWriter(OUTPUT_PATH, schema, compression="zstd")
 
     writer.write_table(table=table)
-    return writer
+
+    return writer, schema
 
 
 if __name__ == "__main__":
@@ -380,17 +257,11 @@ if __name__ == "__main__":
     embedder = PatchedTimeSeriesEmbeddingGenerator(config)
 
     print("Loading weights...")
+    # Ensure map_location handles the device correctly
     state_dict = torch.load("weights/v1.pth", map_location="cpu", weights_only=True)
     embedder.load_state_dict(state_dict, strict=True)
     embedder.to(device)
     embedder.eval()
-
-    # --- OPTIMIZATION: Compile Model ---
-    try:
-        print("Compiling model for faster inference...")
-        embedder = torch.compile(embedder)
-    except Exception as e:
-        print(f"Compilation skipped (not supported/failed): {e}")
 
     # Run the main process
     make_embeddings("star", batch_size=BATCH_SIZE, device=device, model=embedder)
