@@ -55,6 +55,6 @@ def make_data_embeddings(data, batch_size=8):
 
 
 if __name__ == "__main__":
-    # make_data_embeddings("ESC-50", 8)
+    make_data_embeddings("ESC-50", 8)
     make_data_embeddings("ptb-xl", 8)
     make_data_embeddings("SP-500", 64)

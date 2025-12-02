@@ -179,6 +179,6 @@ def normalize(x, eps=1e-5):
 
 
 if __name__ == "__main__":
-    # make_data_embeddings("SP-500", batch_size=64, sequence_length=80)
-    # make_data_embeddings("ESC-50", batch_size=1, sequence_length=80000)
+    make_data_embeddings("SP-500", batch_size=64, sequence_length=80)
+    make_data_embeddings("ESC-50", batch_size=1, sequence_length=80000)
     make_data_embeddings("ptb-xl", batch_size=16, sequence_length=12000)

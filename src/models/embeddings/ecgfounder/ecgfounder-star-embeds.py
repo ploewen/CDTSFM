@@ -157,16 +157,6 @@ def make_split_embeddings(X_df, output_path):
     # Concatenate and Save
     print("Saving...")
     final_tensor = torch.cat(all_pooled_embeddings, dim=0)
-
-    # --- STAR PAIR LOGIC ---
-    # The reference code implies rows come in pairs (e.g. Band A, Band B).
-    # This reshapes (N, 1024) -> (N/2, 2048) by concatenating adjacent rows.
-    if final_tensor.shape[0] % 2 != 0:
-        print(
-            "Warning: Odd number of rows. Dropping last row to enable pair concatenation."
-        )
-        final_tensor = final_tensor[:-1]
-
     concatenated_tensor = final_tensor.reshape(-1, 2 * final_tensor.shape[-1])
 
     # Create a new index, taking the index of the first row in each pair
