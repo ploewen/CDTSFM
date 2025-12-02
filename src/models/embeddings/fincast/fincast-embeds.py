@@ -2,7 +2,8 @@
 # Makes FinCast embeddings for S&P 500, ESC 50, PTB XL Datasets.
 
 # Pre-requisites:
-# - Requires running process-SP-500.py, process-esc-50.py, process-ptb-xl.py
+# - Requires running process-SP-500.py, process-esc-50.py, process-ptb-xl.py,
+#   fincast-setup.sh
 
 # Authors:
 # - Code written by Philip Loewen
