@@ -15,7 +15,6 @@
 import librosa
 import pandas as pd
 import numpy as np
-from scipy.signal import resample_poly
 import os
 import sys
 
