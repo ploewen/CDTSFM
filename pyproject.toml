@@ -6,23 +6,25 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "astromer>=0.1.8",
+    "astropy==6.1.7",
     "beartype==0.20.2",
+    "cesium>=0.12.1",
     "colt5-attention>=0.11.1",
     "einops>=0.8.1",
     "einx==0.3.0",
     "fastparquet>=2024.11.0",
-    "fincast",
     "gluonts>=0.16.2",
     "huggingface-hub>=0.36.0",
     "jax>=0.4.34",
     "jaxtyping>=0.3.3",
     "librosa>=0.11.0",
+    "light-curve>=0.10.5",
     "lightning>=2.5.6",
     "lxml>=6.0.2",
     "matplotlib==3.10.1",
     "mlcroissant>=1.0.22",
     "packages>=0.1.0",
-    "pandas==2.2.3",
+    "pandas>=2.3.2",
     "polars>=1.35.2",
     "pyarrow>=22.0.0",
     "requests>=2.32.5",
@@ -42,11 +44,3 @@ dependencies = [
 
 [tool.uv.sources]
 timesfm = { git = "https://github.com/google-research/timesfm.git" }
-fincast = { workspace = true }
-
-[tool.uv.workspace]
-members = [
-    "packages/fincast",
-    "fincast",
-    "fincast/src/ffm",
-]
