@@ -1,3 +1,14 @@
+# Purpose:
+# Makes random embeddings for S&P 500, ESC 50, PTB XL Datasets.
+#
+# Embeddings are made using iid Uniform(0, 1) random variables.
+
+# Pre-requisites:
+# - Requires running process-SP-500.py, process-esc-50.py, process-ptb-xl.py
+
+# Authors:
+# - Code written by Philip Loewen
+
 import numpy as np
 import pandas as pd
 import os
@@ -13,13 +24,13 @@ def get_embeddings(data):
         df = ParquetFile(input_path)
         nrows = df.metadata.num_rows
 
-        random_embed = pd.DataFrame(np.random.rand(nrows, 512))
+        random_array = np.random.rand(nrows, 512)
+        cols = [f"emb_{i}" for i in range(random_array.shape[1])]
+
+        emb_df = pd.DataFrame(random_array, columns=cols)
 
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        if os.path.exists(output_path):
-            os.remove(output_path)
-
-        random_embed.to_parquet(output_path)
+        emb_df.to_parquet(output_path, compression="zstd")
 
         print(f"Saved {output_path}\n")
 
