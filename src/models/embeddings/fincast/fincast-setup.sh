@@ -4,7 +4,6 @@ git clone https://github.com/vincent05r/FinCast-fts
 # Rename the folder so that we can access it as a package in our scripts
 mv FinCast-fts/ fincast/
 
-
 # Rename the package from my_project to fincast
 sed -i '' "s/name=\"my_project\"/name=\"fincast\"/g" fincast/setup.py
 
@@ -23,7 +22,8 @@ requires-python = ">=3.8"
 dependencies = []
 TOML
 
-uv pip install fincast
+uv add --editable fincast/
 
 # Download model weights
+mkdir -p weights
 wget https://huggingface.co/Vincent05R/FinCast/resolve/main/v1.pth -O weights/v1.pth
