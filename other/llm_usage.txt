@@ -56,3 +56,66 @@ You will often see these acronyms associated with contrastive learning:
 * Explain the difference between **SimCLR** and **MoCo** in more detail?
 * Show you a **Python/PyTorch code snippet** of what a simple Contrastive Loss looks like?
 * Explain how this is used specifically in **Large Language Models (LLMs)**?
+
+User
+What's the best way to do citations in quarto? 
+
+Gemini
+Quarto handles citations using **Pandoc** and **BibTeX**. The "best" way depends on whether you prefer writing code or using a visual interface, but the underlying system remains the same.
+
+---
+
+##1. The Setup (YAML)First, you need a bibliography file (usually a `.bib` file). You link it to your document in the YAML header at the top of your `.qmd` file:
+
+```yaml
+---
+title: "My Research Paper"
+bibliography: references.bib
+csl: apa.csl  # Optional: specifies citation style (e.g., APA, IEEE, Nature)
+---
+
+```
+
+##2. Using the Visual Editor (Easiest Method)If you are using **RStudio** or **VS Code**, the Visual Editor is the most powerful way to manage citations without memorizing keys.
+
+1. Switch to **Visual** mode (top left of the editor).
+2. Press **`Ctrl + Shift + F8`** (or go to `Insert` -> `Citation`).
+3. **Search sources:** You can search by DOI, PubMed ID, or your own Zotero library.
+4. **Auto-sync:** When you insert a citation this way, Quarto automatically adds the entry to your `.bib` file and the formatted citation to your text.
+
+##3. Using Markdown Syntax (Source Mode)If you prefer writing in the **Source** editor, use the `@` symbol followed by the citation key from your `.bib` file.
+
+| Style | Syntax | Output (e.g., APA) |
+| --- | --- | --- |
+| **Parenthetical** | `[@smith2023]` | (Smith, 2023) |
+| **In-text/Narrative** | `@smith2023 says...` | Smith (2023) says... |
+| **Multiple authors** | `[@smith2023; @jones2022]` | (Smith, 2023; Jones, 2022) |
+| **With Page Number** | `[@smith2023, pp. 12-14]` | (Smith, 2023, pp. 12–14) |
+| **Year Only** | `[-@smith2023]` | (2023) |
+
+##4. Generating the BibliographyQuarto automatically generates the bibliography at the end of your document. To control exactly where it appears (e.g., before an appendix), add a heading and a specific "div" at the bottom of your file:
+
+```markdown
+# References
+
+::: {#refs}
+:::
+
+# Appendix
+
+```
+
+---
+
+###Pro Tips for Power Users* **Zotero Integration:** If you use Zotero, the Visual Editor can pull directly from your local library. Use the **Better BibTeX** plugin in Zotero to keep your keys consistent.
+* **Citation Styles:** Download `.csl` files from the [Zotero Style Repository](https://www.zotero.org/styles) to match specific journal requirements.
+* **No-cite:** To include a paper in your bibliography without actually mentioning it in the text, use the `nocite` field in your YAML:
+```yaml
+nocite: |
+  @item1, @item2
+
+```
+
+
+
+**Would you like me to show you how to format a specific citation style (like IEEE or Chicago) or help you set up the Zotero sync?**    
