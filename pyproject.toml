@@ -28,6 +28,8 @@ dependencies = [
     "lxml>=6.0.2",
     "matplotlib==3.10.1",
     "mlcroissant>=1.0.22",
+    "nbclient>=0.10.2",
+    "nbformat>=5.10.4",
     "packages>=0.1.0",
     "pandas>=2.3.2",
     "polars>=1.35.2",
