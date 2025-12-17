@@ -1,0 +1,121 @@
+LLM: Gemini 3.0
+
+User
+What is contrastive learning, within the context of machine learning models?
+
+Gemini
+**Contrastive Learning** is a machine learning technique used to teach a model to distinguish between similar and dissimilar data points. It is a dominant approach in **Self-Supervised Learning**, allowing models to learn useful representations of data without needing explicit human labels.
+
+At its simplest, contrastive learning works on the principle of **"learning by comparison."**
+
+
+
+---
+
+### 1. The Core Intuition
+Imagine you are trying to teach a child what a "dog" is, but you don't know the word "dog."
+* **Positive Pair:** You show them a picture of a Golden Retriever and a picture of a Poodle. You signal that these two match.
+* **Negative Pair:** You show them a picture of a Golden Retriever and a picture of a Truck. You signal that these do not match.
+
+Over time, the child learns the underlying features that make a dog a dog (ears, fur, snout) just by understanding what makes it similar to other dogs and different from trucks, even without a label.
+
+### 2. How It Works Mechanically
+In a technical context, the goal is to learn an **embedding space** (a vector space) where similar items are close together and dissimilar items are far apart.
+
+#### The Process (e.g., in Computer Vision)
+1.  **The Anchor:** The model takes an input image (e.g., a photo of a cat).
+2.  **The Positive Sample:** The model applies data augmentation to that image (rotating it, cropping it, or changing the color). This creates a modified version that is still fundamentally the same object.
+3.  **The Negative Samples:** The model selects entirely different images from the dataset (e.g., a car, a bird, a tree).
+4.  **The Objective:** The neural network (the encoder) converts all these images into vector representations. It is then penalized if the "Anchor" vector is too far from the "Positive" vector or too close to the "Negative" vectors.
+
+### 3. Key Concepts & Terminology
+
+* **Instance Discrimination:** The model treats every single image as its own class. The goal is to identify that *Image A (augmented)* is the same instance as *Image A (original)*, distinct from *Image B*.
+* **Data Augmentation:** This is crucial. Without good augmentations (crops, color jitters, blur), the model cannot learn invariant features.
+* **The Loss Function:** The mathematical formula used to enforce this clustering. The most popular is **InfoNCE** (Information Noise Contrastive Estimation).
+    * In simple terms, it tries to maximize the similarity (often Cosine Similarity) between the positive pair while minimizing the similarity with $N$ negative pairs.
+
+$$\mathcal{L} = -\log \frac{\exp(\text{sim}(z_i, z_j) / \tau)}{\sum_{k=1}^{2N} \exp(\text{sim}(z_i, z_k) / \tau)}$$
+
+*(Where $z_i$ and $z_j$ are the positive pair, and the denominator includes all negative samples).*
+
+### 4. Famous Frameworks
+You will often see these acronyms associated with contrastive learning:
+
+* **SimCLR (Simple Framework for Contrastive Learning):** Google's framework that demonstrated that simple data augmentations and large batch sizes (to get many negative samples) can achieve state-of-the-art results.
+* **MoCo (Momentum Contrast):** Facebook (Meta) AI's approach that uses a "memory bank" to store negative samples, allowing for contrastive learning without needing massive batch sizes.
+* **CLIP (Contrastive Language-Image Pre-training):** OpenAI's model that uses contrastive learning to align text (captions) with images, enabling zero-shot generation (used in DALL-E).
+
+### 5. Why is it important?
+* **No Labels Needed:** It unlocks the ability to train on billions of images found on the internet without humans manually labeling them "cat" or "dog."
+* **Transfer Learning:** A model pre-trained via contrastive learning often learns general features (edges, shapes, textures) that transfer exceptionally well to specific downstream tasks like medical imaging or object detection.
+
+---
+
+### Would you like me to...
+* Explain the difference between **SimCLR** and **MoCo** in more detail?
+* Show you a **Python/PyTorch code snippet** of what a simple Contrastive Loss looks like?
+* Explain how this is used specifically in **Large Language Models (LLMs)**?
+
+User
+What's the best way to do citations in quarto? 
+
+Gemini
+Quarto handles citations using **Pandoc** and **BibTeX**. The "best" way depends on whether you prefer writing code or using a visual interface, but the underlying system remains the same.
+
+---
+
+##1. The Setup (YAML)First, you need a bibliography file (usually a `.bib` file). You link it to your document in the YAML header at the top of your `.qmd` file:
+
+```yaml
+---
+title: "My Research Paper"
+bibliography: references.bib
+csl: apa.csl  # Optional: specifies citation style (e.g., APA, IEEE, Nature)
+---
+
+```
+
+##2. Using the Visual Editor (Easiest Method)If you are using **RStudio** or **VS Code**, the Visual Editor is the most powerful way to manage citations without memorizing keys.
+
+1. Switch to **Visual** mode (top left of the editor).
+2. Press **`Ctrl + Shift + F8`** (or go to `Insert` -> `Citation`).
+3. **Search sources:** You can search by DOI, PubMed ID, or your own Zotero library.
+4. **Auto-sync:** When you insert a citation this way, Quarto automatically adds the entry to your `.bib` file and the formatted citation to your text.
+
+##3. Using Markdown Syntax (Source Mode)If you prefer writing in the **Source** editor, use the `@` symbol followed by the citation key from your `.bib` file.
+
+| Style | Syntax | Output (e.g., APA) |
+| --- | --- | --- |
+| **Parenthetical** | `[@smith2023]` | (Smith, 2023) |
+| **In-text/Narrative** | `@smith2023 says...` | Smith (2023) says... |
+| **Multiple authors** | `[@smith2023; @jones2022]` | (Smith, 2023; Jones, 2022) |
+| **With Page Number** | `[@smith2023, pp. 12-14]` | (Smith, 2023, pp. 12–14) |
+| **Year Only** | `[-@smith2023]` | (2023) |
+
+##4. Generating the BibliographyQuarto automatically generates the bibliography at the end of your document. To control exactly where it appears (e.g., before an appendix), add a heading and a specific "div" at the bottom of your file:
+
+```markdown
+# References
+
+::: {#refs}
+:::
+
+# Appendix
+
+```
+
+---
+
+###Pro Tips for Power Users* **Zotero Integration:** If you use Zotero, the Visual Editor can pull directly from your local library. Use the **Better BibTeX** plugin in Zotero to keep your keys consistent.
+* **Citation Styles:** Download `.csl` files from the [Zotero Style Repository](https://www.zotero.org/styles) to match specific journal requirements.
+* **No-cite:** To include a paper in your bibliography without actually mentioning it in the text, use the `nocite` field in your YAML:
+```yaml
+nocite: |
+  @item1, @item2
+
+```
+
+
+
+**Would you like me to show you how to format a specific citation style (like IEEE or Chicago) or help you set up the Zotero sync?**    

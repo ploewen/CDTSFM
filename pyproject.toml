@@ -8,12 +8,17 @@ dependencies = [
     "astromer>=0.1.8",
     "astropy==6.1.7",
     "beartype==0.20.2",
+    "bokeh>=3.8.1",
     "cesium>=0.12.1",
+    "colorcet>=3.1.0",
     "colt5-attention>=0.11.1",
+    "datashader>=0.18.2",
     "einops>=0.8.1",
     "einx==0.3.0",
     "fastparquet>=2024.11.0",
+    "fincast",
     "gluonts>=0.16.2",
+    "holoviews>=1.22.1",
     "huggingface-hub>=0.36.0",
     "jax>=0.4.34",
     "jaxtyping>=0.3.3",
@@ -23,12 +28,16 @@ dependencies = [
     "lxml>=6.0.2",
     "matplotlib==3.10.1",
     "mlcroissant>=1.0.22",
+    "nbclient>=0.10.2",
+    "nbformat>=5.10.4",
     "packages>=0.1.0",
     "pandas>=2.3.2",
     "polars>=1.35.2",
     "pyarrow>=22.0.0",
     "requests>=2.32.5",
     "safetensors>=0.7.0",
+    "scikit-image>=0.25.2",
+    "scikit-optimize>=0.10.2",
     "tdqm>=0.0.1",
     "tensorflow-macos==2.14.0",
     "timesfm",
@@ -36,11 +45,19 @@ dependencies = [
     "torch==2.5.0",
     "tqdm>=4.67.1",
     "transformers>=4.57.3",
+    "umap-learn>=0.5.9.post2",
     "utilsforecast==0.2.12",
     "wfdb>=4.3.0",
     "wikipedia>=1.4.0",
+    "xgboost>=3.1.2",
     "yfinance==0.2.55",
 ]
 
 [tool.uv.sources]
 timesfm = { git = "https://github.com/google-research/timesfm.git" }
+fincast = { workspace = true, editable = true }
+
+[tool.uv.workspace]
+members = [
+    "fincast",
+]
