@@ -1,7 +1,7 @@
 ---
 title: "Beyond the Specialist: Assessing the Cross-Domain Zero-Shot Embeddings of Time Series Foundation Models"
 author: "Philip Loewen"
-date: "2025-12-15"
+date: "2025-12-16"
 format:
   pdf:
     documentclass: article
@@ -36,6 +36,8 @@ nocite: |
 
 # Abstract
 The emergence of Time Series Foundation Models (TSFMs) promises a shift toward universal, zero-shot forecasting capabilities. However, their effectiveness across diverse domains remains an open question. In this study, we conduct a rigorous geometric audit of leading TSFMs (TIMESFM, MOIRAI, Wav2Vec 2.0, ECGFounder, Astromer, FinCast) across four distinct domains: Finance (S&P 500 stocks), Healthcare (PTB-XL), Audio (ESC-50), and Astronomy (StarEmbed). By deploying a multi-head classification suite, ranging from logistic regression to multi-layer perceptrons, we benchmark these large-scale models against strict random initializations and lightweight, domain-specific features. Our results reveal a critical "Stochasticity Barrier": while TSFMs demonstrate strong positive transfer in deterministic, physical domains, they fail to significantly outperform random noise in high-entropy financial environments (Accuracy \approx 52%). Furthermore, we observe that domain-specific foundation models do not consistently outperform generalist architectures. Notably, lightweight custom feature extractors frequently rival or outperform massive pre-trained models, achieving 90.3% accuracy in astronomy tasks where TSFMs capped at 67.9%, challenging the assumption that scale is the only path to performance. We conclude that current pre-training objectives successfully encode morphological and periodic laws but struggle to disentangle stochastic signal from noise, necessitating a re-evaluation of zero-shot transfer in non-stationary domains.
+
+Code is available at <https://github.com/ploewen/CDTSFM>.
 
 # Introduction
 
