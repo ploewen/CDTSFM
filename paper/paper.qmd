@@ -1,7 +1,8 @@
 ---
-title: "Beyond the Specialist: Assessing the Cross-Domain Zero-Shot Embeddings of Time Series Foundation Models"
+title: "Beyond the Specialist: Analyzing Cross-Domain Zero-Shot Embeddings of Time Series Foundation Models"
 author: "Philip Loewen"
-date: "2025-12-16"
+date: today
+date-format: long
 format:
   pdf:
     documentclass: article
@@ -29,37 +30,129 @@ format:
     tbl-pos: 'H!'  # Force all tables to stay put
     fig-pos: 'H'  # Force all figures to stay put
 bibliography: references.bib
-
+abstract: "The emergence of Time Series Foundation Models (TSFMs) promises a shift toward universal, zero-shot forecasting capabilities. However, their effectiveness across diverse domains remains an open question. In this study, we conduct a geometric audit of six TSFMs (TIMESFM, MOIRAI, Wav2Vec 2.0, ECGFounder, Astromer, FinCast) across four distinct domains: Finance (S&P 500 stocks), Healthcare (PTB-XL), Audio (ESC-50), and Astronomy (StarEmbed). By deploying a multi-head classification suite, ranging from logistic regression to multi-layer perceptrons, we benchmark these large-scale models against strict random initializations and lightweight, domain-specific features. We find a \"Stochasticity Barrier\": while TSFMs demonstrate strong positive transfer in deterministic, physical domains, they fail to significantly outperform random noise in high-entropy financial environments. Furthermore, we observe that domain-specific foundation models do not consistently outperform generalist architectures. Notably, lightweight custom feature extractors frequently rival or outperform massive pre-trained models, achieving 90.3% accuracy in astronomy tasks where TSFMs capped at 67.9%, challenging the assumption that scale is the only path to performance. We conclude that current pre-training objectives successfully encode morphological and periodic laws but struggle to disentangle stochastic signal from noise, necessitating a re-evaluation of zero-shot transfer in non-stationary domains."
+thanks: "Code and data are available at: <https://github.com/ploewen/CDTSFM>."
 nocite: |
   @wagner-2020, @Goldberger2000-pr
 ---
 
-# Abstract
-The emergence of Time Series Foundation Models (TSFMs) promises a shift toward universal, zero-shot forecasting capabilities. However, their effectiveness across diverse domains remains an open question. In this study, we conduct a rigorous geometric audit of leading TSFMs (TIMESFM, MOIRAI, Wav2Vec 2.0, ECGFounder, Astromer, FinCast) across four distinct domains: Finance (S&P 500 stocks), Healthcare (PTB-XL), Audio (ESC-50), and Astronomy (StarEmbed). By deploying a multi-head classification suite, ranging from logistic regression to multi-layer perceptrons, we benchmark these large-scale models against strict random initializations and lightweight, domain-specific features. Our results reveal a critical "Stochasticity Barrier": while TSFMs demonstrate strong positive transfer in deterministic, physical domains, they fail to significantly outperform random noise in high-entropy financial environments (Accuracy \approx 52%). Furthermore, we observe that domain-specific foundation models do not consistently outperform generalist architectures. Notably, lightweight custom feature extractors frequently rival or outperform massive pre-trained models, achieving 90.3% accuracy in astronomy tasks where TSFMs capped at 67.9%, challenging the assumption that scale is the only path to performance. We conclude that current pre-training objectives successfully encode morphological and periodic laws but struggle to disentangle stochastic signal from noise, necessitating a re-evaluation of zero-shot transfer in non-stationary domains.
-
-Code is available at <https://github.com/ploewen/CDTSFM>.
-
 # Introduction
 
-The development of foundation models in natural language processing has brought forth models capable of handling a myriad of tasks, from understanding and developing code, poetry, law, research papers equally well. Naturally, we have developed an interest in creating models working on other forms of data with the same capabilities. In this paper we look specifically at the domain of Time Series data. Working with time series data is inherently challenging due to high autocorrelation and the presence of complex sequential, periodic, and stochastic patterns. Time Series Foundation Models (TSFMs), are a rising class of models which promise to deliver predictive and classification power with little to no fine-tuning necessary. We wonder how do these "generalist" TSFM models that are pre-trained within a variety of different domains, perform compared to "specialist" models pretrained within the specific domain of application. Furthermore, we investigate the geometry of the zero-shot embeddings and if they are different based on the data being classified. 
+The development of foundation models in natural language processing has brought forth models capable of handling a myriad of tasks, from understanding and developing code, poetry, law, research papers equally well. Naturally, we have developed an interest in creating models working on other forms of data with the same capabilities. In this paper we look specifically at the domain of time series data. Working with time series data is inherently challenging due to high autocorrelation and the presence of complex sequential, periodic, and stochastic patterns. 
 
-Standard evaluation methods often rely on Logistic Regression. While this is often an effective method for classifying linearly separable features, it assumes that the previous architecture linearizes the input data. In many domains, this assumption might fail, especially in the presence of low signal to noise ratio, such as in finance or acoustic processing. This assumption may lead to false negatives, where embeddings are incorrectly judged as having low informational content simply because their rich, non-linear features cannot be decoded by a linear probe.
+Time Series Foundation Models (TSFMs), are an increasingly popular class of models which promise to deliver predictive and classification power with little to no fine-tuning necessary. We wonder how do these "generalist" TSFM models that are pre-trained within a variety of different domains, perform compared to "specialist" models pretrained within the specific domain of application. Furthermore, we investigate the geometry of the zero-shot embeddings and if they are different based on the data being classified. 
+
+Standard evaluation methods often rely on logistic regression. While this is often an effective method for classifying linearly separable features, it assumes that the previous architecture linearizes the input data. In many domains, this assumption might fail, especially in the presence of low signal to noise ratio, such as in finance or acoustic processing. This assumption may lead to false negatives, where embeddings are incorrectly judged as having low informational content simply because their rich, non-linear features cannot be decoded by a linear probe.
 
 Here, we investigate the zero-shot, cross domain capabilities of these models in four different subjects. We look at financial, acoustic, biological and physics data from which we extract embeddings and ultimately apply a suite of classification heads including logistic regression, nearest centroid, k-Nearest Neighbours and a Multi-Layer Perceptron. These allow us to diagnose the topology of the feature space generated by our models using a variety of classification regimes.
 
 # Data
-**PTB-XL** is a large publicly available electrocardiography dataset [@Wagner2020-ps], containing 21799 ECG 10 second readings using 12 leads from 18869 patients. The data has been expert annotated, conforming to the SCP-ECG standard. Included annotations are "NORM" (Normal ECG), "MI" (Myocardial Infarction), "STTC" (ST/T Change), "CD" (Conduction Disturbance), and "HYP" (Hypertrophy). Additionally, an "OTHER" annotation was added for observations that were not given an annotation. The ECG recordings were recorded at a frequency of 500 Hz and downsampled to 100Hz for processing purposes. 
 
-**ESC-50** [@Piczak2015-be] is a dataset containing 2000 environmental audio recordings. The recordings are uniformly sampled at 44.1kHz with a fixed length of 5 seconds. Each recording is organized into one of 50 semantic classes, with 40 examples per class. The available classes can be categorized as animals, natural soundscapes, water sounds, human non-speech sounds, interior/domestic sounds, exterior/urban sounds [@Piczak2015-be]. The data is prearranged by the author into 5 folds for cross validation. We reserve one of these splits to be our testing dataset, using the remaining 4 splits as testing data. This ensuring balanced training and testing sets.
+We consider 4 datasets spanning the audio, astronomical, finance and medical domains. Specifically, we utilize the **PTB-XL** [@Wagner2020-ps] dataset for electrocardiography (ECG), **ESC-50** [@Piczak2015-be] for environmental audio classfication, daily stock returns from **S&P 500 constituents**, and **StarEmbed** [@li2025starembedbenchmarkingtimeseries] for astronomical light curve classification. This multi-domain approach allows us to test TSFM embeddings against various signal types, with each dataset posing a distinct challenge.  
 
-The **S&P 500** (Standard and Poor's 500) is an index fund comprised of the 500 largest stocks. Our dataset is generated from the daily returns of each constituent stock of the index, from January 1st 2000 to November 1st, 2025. It has been sourced through the Yahoo Finance API [@YahooFinance_Data_2025] by usage of the yfinance python package [@aroussi2025yfinance]. To pre-process the data we adapt the methodology put forward in [@Krauss2017-sm]. We do so by creating windows of 500 days, reserving the first 349 days of the window for our training set and the last 150 days for our testing set. We have split the data in this manner to ensure there is no data leakage, adopting purging (no overlap between training and testing sets) and embargo (removing any observation directly following a training set) methods from [@de-prado-2018]. Financial literature suggests that forecasting based on classifying the direction of the return generally performs better than level estimation [@leung-1999]. To this end, we set the input variables of our models to be composed of the returns from sliding window of 80 days (approximately 3 trading months) with the output variable set as 1 or 0 if the following day's return is above or below the window's median return respectively.
+We provide data examples in @fig-ptb-xl, @fig-star, @fig-esc-50, and @fig-sp-500 and summarize the descriptive statistics and downstream tasks for each dataset in @tbl-datasets. Comprehensive descriptions of the datasets, including preprocessing steps and label distributions are provided in [Appendix -@sec-datasets].
 
-The **StarEmbed** dataset is a multi-band light curve dataset designed to benchmark astronomical and general TSFMs on astronomical time series data [@li2025starembedbenchmarkingtimeseries]. The dataset is composed of light curves selected from release 23 (DR23) of the ZTF astronomical survey [@Bellm2019-mh]. Star class labels have been expertly labelled in the Catalina Surveys Periodic Variable Star Catalog (CSPVS) [@Drake2014-ap].
+```{python}
+#| label: fig-ptb-xl
+#| echo: false
+#| fig-cap: "PTB-XL: Normal heart rhythm (top) vs Myocardial Infarction (bottom)."
+#| out-width: "100%"
 
-The dataset is split into training, validation and testing datasets. Time series for green and red light curves are given, along with time stamps formatted in Modified Julian Dates (MJD), and a string identifying the class of the star. Several other variables are included but will not be used for our analysis. 
+import pandas as pd
+import matplotlib.pyplot as plt
 
-The stars were first pre-classified using multivariate kernel density estimation [@scott-1992], followed by a classification done by visual inspection to asses their final class [@Drake2014-ap]. In total, there are 6 different star classes present in the dataset:  "CVn", "EW", "EA", "LPV", "RRab", "RRc", "RRd", and "RS". All classes are present in approximately equal proportion in all three splits, however, some classes  have many fewer observations than others, for example, LPV and EW classes which contain 360 and 27075 observations respectively [@Drake2014-ap].
+df3 = pd.read_parquet("../data/processed/ptb-xl/ptb-xl-X-test.parquet")
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(9, 1.5), sharex=True)
+ax[0].plot(df3.iloc[0])
+ax[1].plot(df3.iloc[127])
+plt.tight_layout()
+plt.subplots_adjust(hspace=0)
+plt.show()
+```
 
+```{python}
+#| label: fig-star
+#| echo: false
+#| fig-cap: "StarEmbed: eclipsing binary (top) vs active binary (bottom)."
+#| out-width: "100%"
+
+# Star data (kept as is)
+df2 = pd.read_parquet("../data/raw/star/star-X-test.parquet")
+index = 38
+index2 = 108
+
+green_col = "mediumseagreen"
+red_col = "crimson"
+green_marker = "+"
+red_marker = "."
+
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(9, 1.5), sharex=True)
+ax[0].scatter(df2["g_mjd"][index], df2["g_target"][index], c=green_col, marker=green_marker, label = "g passband")
+ax[0].scatter(df2["r_mjd"][index], df2["r_target"][index], c=red_col, marker=red_marker, label = "r passband")
+ax[0].legend()
+ax[1].scatter(df2["g_mjd"][index2], df2["g_target"][index2], c=green_col, marker=green_marker)
+ax[1].scatter(df2["r_mjd"][index2], df2["r_target"][index2], c=red_col, marker=red_marker)
+
+for a in ax:
+    a.yaxis.set_inverted(True)
+    
+# Only set labels on the outer edges to avoid clutter in grid
+plt.tight_layout()
+plt.subplots_adjust(hspace=0)
+plt.show()
+```
+
+```{python}
+#| label: fig-esc-50
+#| echo: false
+#| fig-cap: "ESC-50: car horn (top) vs church bell (bottom)."
+#| out-width: "100%"
+
+df1 = pd.read_parquet("../data/processed/esc-50/esc-50-X-test.parquet")
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(9, 1.5), sharex=True)
+ax[0].plot(df1.iloc[0])
+ax[1].plot(df1.iloc[20])
+plt.tight_layout()
+plt.subplots_adjust(hspace=0)
+plt.show()
+```
+
+
+```{python}
+#| label: fig-sp-500
+#| echo: false
+#| fig-cap: "S&P 500 constituents: negative return (top) vs positive return (bottom)."
+#| out-width: "100%"
+
+df4 = pd.read_parquet("../data/processed/SP-500/SP-500-X-test.parquet")
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(9, 1.5), sharex=True)
+ax[0].plot(df4.iloc[7000])
+ax[1].plot(df4.iloc[8])
+plt.tight_layout()
+plt.subplots_adjust(hspace=0)
+plt.show()
+```
+
+
+```{python}
+#| label: tbl-datasets
+#| tbl-cap: Dataset summaries
+#| echo: false
+
+from IPython.display import Markdown
+from tabulate import tabulate
+
+table = [["PTB-XL","Highly periodic and high inter-patient variability", 6, 80000, 21799],
+         ["StarEmbed", "Multiband and irrregularly sampled with variable series length", 7, "Variable", 41498],
+         ["ESC-50","High frequency with similar classes (e.g. rain vs crackling fire)", 50, 12000, 2000],
+         ["S&P 500","Low signal to noise ratio, highly stochastic", 2, 80, 359312]]
+Markdown(tabulate(
+  table, 
+  headers=["Dataset","Challenge", "Number of classes", "Series length", "Sample size"],
+  tablefmt="grid",
+  maxcolwidths=[None, 40, None, None, None]
+))
+```
 
 # Models
 
@@ -115,13 +208,13 @@ $$
 
 ## Classification Heads
 
-**Logistic regression** is one of the most common classification methods. It assumes that the sample space can by divided into class clusters through hyperplane segmentation. **Nearest centroid** classification also assumes clustering, however this method assumes classes are contained within balls, evaluate compactness and convexity of label sets. To evaluate local manifold topology, we employ a **k-Nearest Neighbors** (k-NN) probe (k=5, distance-weighted). Unlike linear probes which assume global separability, k-NN tests if semantic classes form varying local neighborhoods in the latent space. To evaluate non-linearity and high-complexity manifolds, we utilize a 2 layer, **multi-layer perceptron** (MLP) with hidden dimension 1024 (see Appendix A for formal definitions).
+**Logistic regression** is one of the most common classification methods. It assumes that the sample space can by divided into class clusters through hyperplane segmentation. **Nearest centroid** classification also assumes clustering, however this method assumes classes are contained within balls, evaluate compactness and convexity of label sets. To evaluate local manifold topology, we employ a **k-Nearest Neighbors** (k-NN) probe (k=5, distance-weighted). Unlike linear probes which assume global separability, k-NN tests if semantic classes form varying local neighborhoods in the latent space. To evaluate non-linearity and high-complexity manifolds, we utilize a 2 layer, **multi-layer perceptron** (MLP) with hidden dimension 1024 (see [Appendix -@sec-class-heads] for formal definitions).
 
 
 
 ## Evaluation Metrics
 
-To provide a comprehensive assesment of model performance, we report four standard metrics. While Accuracy (A) serves as a primary metric for comparison against baseline, we also report Precision (P), Recall (R), and the $F_1$ score (harmonic mean of Precision and Recall). In the case of binary classification (labels 0 or 1):
+To asses model performance, we report four standard metrics. While Accuracy (A) serves as a primary metric for comparison against baseline, we also report Precision (P), Recall (R), and the $F_1$ score (harmonic mean of Precision and Recall). In the case of binary classification (labels 0 or 1):
 $$
 A = \frac{TP+TN}{P + N},\quad P = \frac{TP}{TP + FP},\quad R = \frac{TP}{P},\quad F_1 = \frac{2 \times P \times R}{P + R}
 $$
@@ -133,11 +226,11 @@ These alternative metrics allow for us to evaluate the performance of models in 
 
 ## Experiment Setup
 
-All experiments were conducted within a standardized benchmarking pipeline to ensure fair comparision. 
+All experiments were conducted within a standardized benchmarking pipeline to ensure fair comparison. 
 
-**Preprocessing**. To prevent any information leakage, training and testing data were immediately split. Dimensionality reduction (PCA) and standardization were fitted only on the training split and applied to the testing split. Where appropriate, downsampling was applied, greatly reducing the size of the data files and increasing computational speed while retaining the same information.
+**Preprocessing**. To reduce any information leakage, training and testing data were immediately split. Dimensionality reduction (PCA) and standardization were fitted only on the training split and applied to the testing split. Where appropriate, downsampling was applied, greatly reducing the size of the data files and increasing computational speed while retaining the same information.
 
-**Baselines**. We compare all pre-trained models against two basic controls. A custom embedding has been generated for each dataset, computing various statistical features in both time and frequency domain (see Appendix B for the list of features included).. These embeddings serve as a baseline for the other models, demonstrating the explainability of light-weight statistical methods compared to the much more computationally expensive and pre-trained models. We also include random embeddings which are constructed by generating 512 Uniform(0,1) random variables. This baseline establishes a "noise floor".
+**Baselines**. We compare all pre-trained models against two basic controls. A custom embedding has been generated for each dataset, computing various statistical features in both time and frequency domain (see [Appendix -@sec-extracted-features] for the list of features included). These embeddings serve as a baseline for the other models, demonstrating the explainability of light-weight statistical methods compared to the much more computationally expensive and pre-trained models. We also include random embeddings which are constructed by generating 512 Uniform(0,1) random variables. This baseline establishes a "noise floor".
 
 ## Financial Forecasting
 
@@ -147,10 +240,6 @@ The S&P-500 constituents data serves as a binary classification problem. Stock r
 #| output: asis
 #| echo: false
 #| tbl-pos: 'H'
-
-import pandas as pd
-import io
-import numpy as np
 
 def generate_table(df):
   # 2. Configuration
@@ -335,15 +424,15 @@ In contrast, Table 2 demonstrates the clear utility of foundation models in doma
 
 Surprisingly ECGFounder, trained on heartbeat data, achieved the highest accuracy (47.5%) on the audio classification task, outperform the generalists TimesFM (37.0%) and Moirai (32.8%) as well as the specialist Wav2Vec (25.7%) This points to a successful transfer between domains. This may be due to the similarities in tasks, where both audio and heartbeats can be understood do to their frequency domain properties.
 
-In the astronomy domain, the Custom features drastically outperformed all other models, achieving 90.3% accuracy with the MLP. In comparison, the second best model was Astromer reaching only 67.9% accuracy. This 22% performance gap indicates that current embeddings fail to capture the high-precision phase information required to correctly distinguish star classes, whereas a statistical model succesfully captures the correct information.
+In the astronomy domain, the Custom features drastically outperformed all other models, achieving 90.3% accuracy with the MLP. In comparison, the second best model was Astromer reaching only 67.9% accuracy. This 22% performance gap indicates that current embeddings fail to capture the high-precision phase information required to correctly distinguish star classes, whereas a statistical model succesfuly captures the correct information.
 
 ## Embedding Geometry
 
-A universal finding across all experiments, and espcially in the astronomy domain is that out of all classification heads, the centroid classifier demonstrated by far the least competitive results. This implies that TSFMs do not represent data as compact, spherical sets. For instance in the PTB-XL dataset we see a non linearity gap where the MLP outperformed logistic regression (e.g. with Moirai achieving +4%). This might indicate that the true classes lay on a complex non-linear manifold, which requires a non-linear model to decode. 
+A universal finding across all experiments, and especially in the astronomy domain is that out of all classification heads, the centroid classifier demonstrated by far the least competitive results. This implies that TSFMs do not represent data as compact, spherical sets. For instance in the PTB-XL dataset we see a non linearity gap where the MLP outperformed logistic regression (e.g. with Moirai achieving +4%). This might indicate that the true classes lay on a complex non-linear manifold, which requires a non-linear model to decode. 
 
-Within the Astromer results we see succesfull results from the k-NN classifer, which models local topology, while the centroid classifier, which models global topology, performed poorly. This suggests that embeddings for a single class are spread across the feature space rather than clustered together. Thus a model with high variance and low bias (like k-NN with low k) will likely outperform a model with low variance and high bias (like centroid modelling).
+Within the Astromer results we see succesful results from the k-NN classifier, which models local topology, while the centroid classifier, which models global topology, performed poorly. This suggests that embeddings for a single class are spread across the feature space rather than clustered together. Thus a model with high variance and low bias (like k-NN with low k) will likely outperform a model with low variance and high bias (like centroid modelling).
 
-Conversely, on the S&P 500, PTB-XL and StarEmbed datasets the MLP offered no significant advantage over the linear model, suggesting a flatter geometry. In the case of the S&P 500 dataset, model performance stayed near the baseline results, demonstrating noisy embeddings and a lack of seperation between signal and noise. 
+Conversely, on the S&P 500, PTB-XL and StarEmbed datasets the MLP offered no significant advantage over the linear model, suggesting a flatter geometry. In the case of the S&P 500 dataset, model performance stayed near the baseline results, demonstrating noisy embeddings and a lack of separation between signal and noise. 
 
 # Conclusion
 
@@ -357,15 +446,36 @@ Geometrically, we find that TSFMs map data onto complex, non-linear manifolds th
 
 Our study demonstrates that scale is not a substitute for signal. In specialized tasks such as variable star classification, a custom model using stochastic features drastically outperformed the best foundation model. Despite the paradigm shift towards large-scale foundation models, light-weight, task specific feature extractors remain highly competitive in high-entropy domains and should not be discarded in favor of expensive generalist architectures.
 
+\newpage
 
-# References 
+# References {.unnumbered}
 
 ::: {#refs}
 :::
 
-# Appendix A
+\appendix
 
-## Logistic Regression
+\newpage
+
+# Dataset Descriptions {#sec-datasets}
+
+**PTB-XL** is a large publicly available electrocardiography dataset [@Wagner2020-ps], containing 21799 ECG 10 second readings using 12 leads from 18869 patients. The data has been expert annotated, conforming to the SCP-ECG standard. Included annotations are "NORM" (Normal ECG), "MI" (Myocardial Infarction), "STTC" (ST/T Change), "CD" (Conduction Disturbance), and "HYP" (Hypertrophy). Additionally, an "OTHER" annotation was added for observations that were not given an annotation. The ECG recordings were recorded at a frequency of 500 Hz and downsampled to 100Hz for processing purposes. 
+
+**ESC-50** [@Piczak2015-be] is a dataset containing 2000 environmental audio recordings. The recordings are uniformly sampled at 44.1kHz with a fixed length of 5 seconds. Each recording is organized into one of 50 semantic classes, with 40 examples per class. The available classes can be categorized as animals, natural soundscapes, water sounds, human non-speech sounds, interior/domestic sounds, exterior/urban sounds [@Piczak2015-be]. The data is prearranged by the author into 5 folds for cross validation. We reserve one of these splits to be our testing dataset, using the remaining 4 splits as testing data. This ensuring balanced training and testing sets.
+
+The **S&P 500** (Standard and Poor's 500) is an index fund comprised of the 500 largest stocks. Our dataset is generated from the daily returns of each constituent stock of the index, from January 1st 2000 to November 1st, 2025. It has been sourced through the Yahoo Finance API [@YahooFinance_Data_2025] by usage of the yfinance python package [@aroussi2025yfinance]. To pre-process the data we adapt the methodology put forward in [@Krauss2017-sm]. We do so by creating windows of 500 days, reserving the first 349 days of the window for our training set and the last 150 days for our testing set. We have split the data in this manner to ensure there is no data leakage, adopting purging (no overlap between training and testing sets) and embargo (removing any observation directly following a training set) methods from [@de-prado-2018]. Financial literature suggests that forecasting based on classifying the direction of the return generally performs better than level estimation [@leung-1999]. To this end, we set the input variables of our models to be composed of the returns from sliding window of 80 days (approximately 3 trading months) with the output variable set as 1 or 0 if the following day's return is above or below the window's median return respectively.
+
+The **StarEmbed** dataset is a multi-band light curve dataset designed to benchmark astronomical and general TSFMs on astronomical time series data [@li2025starembedbenchmarkingtimeseries]. The dataset is composed of light curves selected from release 23 (DR23) of the ZTF astronomical survey [@Bellm2019-mh]. Star class labels have been expertly labelled in the Catalina Surveys Periodic Variable Star Catalog (CSPVS) [@Drake2014-ap].
+
+The dataset is split into training, validation and testing datasets. Time series for green and red light curves are given, along with time stamps formatted in Modified Julian Dates (MJD), and a string identifying the class of the star. Several other variables are included but will not be used for our analysis. 
+
+The stars were first pre-classified using multivariate kernel density estimation [@scott-1992], followed by a classification done by visual inspection to asses their final class [@Drake2014-ap]. In total, there are 6 different star classes present in the dataset:  "CVn", "EW", "EA", "LPV", "RRab", "RRc", "RRd", and "RS". All classes are present in approximately equal proportion in all three splits, however, some classes  have many fewer observations than others, for example, LPV and EW classes which contain 360 and 27075 observations respectively [@Drake2014-ap].
+
+\newpage
+
+# Classification Heads {#sec-class-heads}
+
+## Logistic regression
 
 Logistic regression defines $\psi = \{ \beta, \mathbf{b} \}$ where the probability is modeled via the softmax function:
 
@@ -408,7 +518,9 @@ $$
 P(\ell = k \mid \mathbf{z}) = \frac{\exp([\mathbf{W}_2 \mathbf{h} + \mathbf{b}_2]_k)}{\sum_{j \in \mathcal{L}} \exp([\mathbf{W}_2 \mathbf{h} + \mathbf{b}_2]_j)}
 $$
 
-# Appendix B 
+\newpage
+
+# Extracted Features {#sec-extracted-features}
 
 \begin{longtable}{@{}p{2.5cm} p{4.5cm} >{\RaggedRight\arraybackslash}p{8cm}@{}}
 \caption{Detailed Description of Extracted Features} \label{tab:feature_descriptions} \\
