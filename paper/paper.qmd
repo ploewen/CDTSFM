@@ -50,86 +50,90 @@ Here, we investigate the zero-shot, cross domain capabilities of these models in
 
 We consider 4 datasets spanning the audio, astronomical, finance and medical domains. Specifically, we utilize the **PTB-XL** [@Wagner2020-ps] dataset for electrocardiography (ECG), **ESC-50** [@Piczak2015-be] for environmental audio classfication, daily stock returns from **S&P 500 constituents**, and **StarEmbed** [@li2025starembedbenchmarkingtimeseries] for astronomical light curve classification. This multi-domain approach allows us to test TSFM embeddings against various signal types, with each dataset posing a distinct challenge.  
 
-We provide data examples in @fig-ptb-xl, @fig-star, @fig-esc-50, and @fig-sp-500 and summarize the descriptive statistics and downstream tasks for each dataset in @tbl-datasets. Comprehensive descriptions of the datasets, including preprocessing steps and label distributions are provided in [Appendix -@sec-datasets].
+We provide data examples in @fig-data-examples and summarize the descriptive statistics and downstream tasks for each dataset in @tbl-datasets. Comprehensive descriptions of the datasets, including preprocessing steps and label distributions are provided in [Appendix -@sec-datasets].
 
 ```{python}
-#| label: fig-ptb-xl
+#| label: fig-data-examples
 #| echo: false
-#| fig-cap: "PTB-XL: Normal heart rhythm (top) vs Myocardial Infarction (bottom)."
+#| fig-cap: "Examples from PTB-XL (top left), StarEmbed (top right), ESC-50 (bottom left), and S&P 500 constituents (bottom right)."
 #| out-width: "100%"
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
 
+# Load Data
 df3 = pd.read_parquet("../data/processed/ptb-xl/ptb-xl-X-test.parquet")
-fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(9, 1.5), sharex=True)
-ax[0].plot(df3.iloc[0])
-ax[1].plot(df3.iloc[127])
-plt.tight_layout()
-plt.subplots_adjust(hspace=0)
-plt.show()
-```
-
-```{python}
-#| label: fig-star
-#| echo: false
-#| fig-cap: "StarEmbed: eclipsing binary (top) vs active binary (bottom)."
-#| out-width: "100%"
-
-# Star data (kept as is)
 df2 = pd.read_parquet("../data/raw/star/star-X-test.parquet")
+df1 = pd.read_parquet("../data/processed/esc-50/esc-50-X-test.parquet")
+df4 = pd.read_parquet("../data/processed/SP-500/SP-500-X-test.parquet")
+
+# 1. Setup Figure and GridSpec
+# Increased height slightly to (9, 2) to accommodate the gap without crushing the plots
+fig = plt.figure(figsize=(20, 8)) 
+
+# Create an outer GridSpec with 2 rows (blocks) and a gap between them
+# hspace=0.4 adds the space between the top block and the bottom block
+gs_outer = gridspec.GridSpec(2, 1, figure=fig, hspace=0.2, 
+                             left=0.05, right=0.98, top=0.95, bottom=0.05)
+
+# Create inner GridSpecs for the top and bottom blocks
+# hspace=0 keeps the rows strictly adjacent within each block
+gs_top = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs_outer[0], hspace=0, wspace=0.03)
+gs_bot = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs_outer[1], hspace=0, wspace=0.03)
+
+# 2. Create Axes Array
+# We manually construct the 4x2 axes array to match the original 'ax' structure
+ax = np.empty((4, 2), dtype=object)
+
+# Top Block (Row 0 and 1)
+ax[0, 0] = fig.add_subplot(gs_top[0, 0])
+ax[0, 1] = fig.add_subplot(gs_top[0, 1])
+ax[1, 0] = fig.add_subplot(gs_top[1, 0])
+ax[1, 1] = fig.add_subplot(gs_top[1, 1])
+
+# Bottom Block (Row 2 and 3)
+ax[2, 0] = fig.add_subplot(gs_bot[0, 0])
+ax[2, 1] = fig.add_subplot(gs_bot[0, 1])
+ax[3, 0] = fig.add_subplot(gs_bot[1, 0])
+ax[3, 1] = fig.add_subplot(gs_bot[1, 1])
+
+# 3. Plotting (Original Logic)
+# PTB-XL
+ax[0,0].plot(df3.iloc[0])
+ax[1,0].plot(df3.iloc[127])
+
+# Star Data
 index = 38
 index2 = 108
-
 green_col = "mediumseagreen"
 red_col = "crimson"
 green_marker = "+"
 red_marker = "."
 
-fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(9, 1.5), sharex=True)
-ax[0].scatter(df2["g_mjd"][index], df2["g_target"][index], c=green_col, marker=green_marker, label = "g passband")
-ax[0].scatter(df2["r_mjd"][index], df2["r_target"][index], c=red_col, marker=red_marker, label = "r passband")
-ax[0].legend()
-ax[1].scatter(df2["g_mjd"][index2], df2["g_target"][index2], c=green_col, marker=green_marker)
-ax[1].scatter(df2["r_mjd"][index2], df2["r_target"][index2], c=red_col, marker=red_marker)
+ax[0,1].scatter(df2["g_mjd"][index], df2["g_target"][index], c=green_col, marker=green_marker, label = "g passband")
+ax[0,1].scatter(df2["r_mjd"][index], df2["r_target"][index], c=red_col, marker=red_marker, label = "r passband")
+ax[0,1].legend()
+ax[1,1].scatter(df2["g_mjd"][index2], df2["g_target"][index2], c=green_col, marker=green_marker)
+ax[1,1].scatter(df2["r_mjd"][index2], df2["r_target"][index2], c=red_col, marker=red_marker)
+ax[0,1].yaxis.set_inverted(True)
+ax[1,1].yaxis.set_inverted(True)
 
-for a in ax:
-    a.yaxis.set_inverted(True)
-    
-# Only set labels on the outer edges to avoid clutter in grid
-plt.tight_layout()
-plt.subplots_adjust(hspace=0)
-plt.show()
-```
+# ESC-50
+ax[2,0].plot(df1.iloc[0])
+ax[3,0].plot(df1.iloc[20])
 
-```{python}
-#| label: fig-esc-50
-#| echo: false
-#| fig-cap: "ESC-50: car horn (top) vs church bell (bottom)."
-#| out-width: "100%"
+# SP-500
+ax[2,1].plot(df4.iloc[7000])
+ax[3,1].plot(df4.iloc[8])
 
-df1 = pd.read_parquet("../data/processed/esc-50/esc-50-X-test.parquet")
-fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(9, 1.5), sharex=True)
-ax[0].plot(df1.iloc[0])
-ax[1].plot(df1.iloc[20])
-plt.tight_layout()
-plt.subplots_adjust(hspace=0)
-plt.show()
-```
-
-
-```{python}
-#| label: fig-sp-500
-#| echo: false
-#| fig-cap: "S&P 500 constituents: negative return (top) vs positive return (bottom)."
-#| out-width: "100%"
-
-df4 = pd.read_parquet("../data/processed/SP-500/SP-500-X-test.parquet")
-fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(9, 1.5), sharex=True)
-ax[0].plot(df4.iloc[7000])
-ax[1].plot(df4.iloc[8])
-plt.tight_layout()
-plt.subplots_adjust(hspace=0)
+# No plt.tight_layout() or plt.subplots_adjust(hspace=0) needed here 
+# as spacing is handled by GridSpec
+for a in ax.flat:
+    a.set_xticks([])
+    a.set_yticks([])
+    a.margins(x=0)
 plt.show()
 ```
 
@@ -142,85 +146,45 @@ plt.show()
 from IPython.display import Markdown
 from tabulate import tabulate
 
-table = [["PTB-XL","Highly periodic and high inter-patient variability", 6, 80000, 21799],
-         ["StarEmbed", "Multiband and irrregularly sampled with variable series length", 7, "Variable", 41498],
-         ["ESC-50","High frequency with similar classes (e.g. rain vs crackling fire)", 50, 12000, 2000],
-         ["S&P 500","Low signal to noise ratio, highly stochastic", 2, 80, 359312]]
+table = [["PTB-XL","Highly periodic and high inter-patient variability", "6", "80000", "21799"],
+         ["StarEmbed", "Multiband and irrregularly sampled with variable series length", "7", "Variable", "41498"],
+         ["ESC-50","High frequency with similar classes (e.g. rain vs crackling fire)", "50", "12000", "2000"],
+         ["S&P 500","Low signal to noise ratio, highly stochastic", "2", "80", "359312"]]
 Markdown(tabulate(
   table, 
   headers=["Dataset","Challenge", "Number of classes", "Series length", "Sample size"],
   tablefmt="grid",
-  maxcolwidths=[None, 40, None, None, None]
+  maxcolwidths=[None, 30, None, None, None]
 ))
 ```
 
 # Models
 
-## General Models
-**Moirai** is a forecasting time series model designed to perform across domains [@woo2024unifiedtraininguniversaltime]. It utilizes multiple patch size projection layers, enabling it to treat data across temporal patterns and an Any-variate Attention mechanism, leveraging Rotary Position Embeddings allowing it to treat multivariate data seamlessly. Furthermore the model addresses the issue of probabilistic forecasting by employing a mixture of parametric distributions, leading to a model which can be evaluated using any metric.
+We evaluate six diverse models, categorized into two different groups: generalist models designed for universal forecasting and classification, and specialist models trained in specific data domains. Our generalist models are **Moirai** [@woo2024unifiedtraininguniversaltime] and **TimesFM** [@das2024decoderonlyfoundationmodeltimeseries] which are compared to the domain specialists **Astromer** [@donoso-oliva-2022], **ECGFounder** [@li2025electrocardiogramfoundationmodelbuilt], **Fincast** [@zhu2025fincastfoundationmodelfinancial], and **Wav2Vec 2.0** [@baevski2020wav2vec20frameworkselfsupervised]. Models were selected to prioritize open-weight availability and to span the primary architecture paradigms in time series learning tasks.
 
-**TimesFM** is a model developed by Google Research [@das2024decoderonlyfoundationmodeltimeseries], employing a Decoder-Only paradigm. Drawing inspiration from Large Language Models, TimesFM follows the same strategy and treats prediction as a next-token prediction task. TimesFM processes non-overlapping patches of the series into tokens with a Multi-Layer Perceptron, using a Transformer architecture to autoregressively predict following patches. A distinguishing feature of TimesFM is the data used for its pretraining. It has been trained on a massive mixture of 100 billion time points, composed of both real-world data (Google Trends, Wikipedia Pageviews) and synthetic data, generated through statistical models and physical simulations.
+## General Models
+**Moirai** is a masked-encoder based time series forecasting model developed by Salesforce Research to perform across domains [@woo2024unifiedtraininguniversaltime]. Moirai utilizes multiple patch size projection layers and an Any-variate Attention mechanism, enabling it to treat data with varying temporal patterns and dimensionality seamlessly. Furthermore, the model addresses the issue of probabilistic forecasting by employing a mixture of parametric distributions.
+
+**TimesFM** is a model developed by Google Research [@das2024decoderonlyfoundationmodeltimeseries], employing a Decoder-Only paradigm. TimesFM draws inspiration from Large Language Models (LLMs) and processes non-overlapping patches of the series into tokens with a Multi-Layer Perceptron, using a Transformer architecture to autoregressively predict following patches. The pre-training set consists of a mixture of 100 billion time points, composed of both real-world data (Google Trends, Wikipedia Pageviews) and synthetic data, generated through statistical models and physical simulations.
 
 ## Domain Specific Models
 
-While generalist models aim for universality, **Astromer** [@donoso-oliva-2022] demonstrates the power of domain-focused pre-training. It is a self-supervised, Transformer-based encoder-decoder designed specifically for astronomical light curve data, representing the brightness of celestial objects. ASTROMER has been developed to specifically handle the irregular sampling inherent to telescopic observation (e.g., gaps due to daylight or weather).
+While generalist models aim for universality, **Astromer** [@donoso-oliva-2022] demonstrates the power of domain-focused pre-training. It is a self-supervised, Transformer-based encoder-decoder designed specifically for astronomical light curve data, representing the brightness of celestial objects. ASTROMER has been developed to handle the irregular sampling inherent to telescopic observation (e.g., gaps due to daylight or weather).
 
-**ECGFounder** [@li2025electrocardiogramfoundationmodelbuilt] is a large-scale encoder designed for electrocardiogram (ECG) analysis. Trained on a massive corpus of over 10 million 12-lead ECG recordings, it learns to identify 150 distinct cardiac abnormalities. ECGFounder employs a RegNet (ResNet-based) backbone optimized for capturing the precise morphological features of cardiac cycles (such as QRS complex width and ST-segment elevation). 
+**ECGFounder** [@li2025electrocardiogramfoundationmodelbuilt] is a large-scale encoder designed for electrocardiogram (ECG) analysis. Trained on over 10 million 12-lead ECG recordings, it learns to identify 150 distinct cardiac abnormalities. ECGFounder employs a RegNet (ResNet-based) backbone optimized for capturing the precise morphological features of cardiac cycles (such as QRS complex width and ST-segment elevation). 
 
-**Wav2Vec 2.0** (W2V) [@baevski2020wav2vec20frameworkselfsupervised] is a model developed by Meta AI, employing a dual-stage architecture. It first employs a multi-layer Convolutional Neural Network (CNN) to process raw waveforms and extract latent feature representations, followed by a context network which uses the usual Transformer architecture. Wav2Vec 2.0's key contribution is a Contrastive Learning objective combined with Product Quantization. The model learns to predict from discretized "codebook" entries of masked temporal steps, effectively inventing its own latent glossary of acoustic units from raw audio. This architecture allows it to capture complex frequency-domain dependencies and local temporal structures inherent to sound.
+**Wav2Vec 2.0** (W2V) [@baevski2020wav2vec20frameworkselfsupervised] is a model developed by Meta AI, employing a dual-stage architecture. It first employs a multi-layer Convolutional Neural Network (CNN) to process raw waveforms and extract latent feature representations, followed by a context network which uses a standard Transformer architecture. Wav2Vec 2.0's key contribution is a Contrastive Learning objective combine with Product Quantization. This architecture builds latent representations by concatenating entries of a codebook, allowing it to capture complex frequency-domain dependencies and local temporal structures inherent to sound.
 
-**Fincast** [@zhu2025fincastfoundationmodelfinancial] is a domain specific foundation model tailored for time series forecasting. It has been trained exclusively on large-scale financial data, encompassing diverse asset classes (equities, forex, commodities) and frequencies. The model uses input tokenization, followed by Causal Attention and sparse Mixture of Experts (MOE) blocks and a Decoder. FinCast aims to capture domain-specific latent dynamics like volatility clustering and regime changes that generic models may fail to prioritize.
+**Fincast** [@zhu2025fincastfoundationmodelfinancial] is a foundation model tailored for financial time series forecasting. It has been trained exclusively on large-scale financial data, encompassing diverse asset classes (equities, forex, commodities) and frequencies. The model uses input tokenization, followed by Causal Attention, sparse Mixture of Experts (MOE) blocks and a Decoder. FinCast aims to capture domain-specific latent dynamics like volatility clustering and regime changes that generic models may fail to prioritize.
 
 
 # Methodology
 
-We consider the single-label classification task over a dataset of time series. Let $\mathcal{D} = \{(\mathbf{y}_n, \ell_n)\}_{n=1}^N$ represent our dataset, where $\ell_n \in \mathcal{L}$ is the ground truth label from a discrete label set $\mathcal{L} = \{0, \dots, K-1\}$.
+To evaluate the instrisic geometry of TSFM representations, we adopt a fixed-feature extraction protocol. For each input series $\mathbf{y}$, we compute a latent embedding $\mathbf{z} = f_\phi(\mathbf{y})$ using pre-trained model parameters $\phi$. Crucially, $\phi$ remains frozen throughout our experiments to prevent task-specific adaptation. We then train a set of lightweight classification heads $g_\psi(\mathbf{z})$ to map these embeddings to target labels. This decoupling allows us to isolate the quality of the zero-shot embeddings to the capacity to learn new features. In this case of the StarEmbed dataset which contains two variates, 
 
-Each input $\mathbf{y}$ is a (possibly multivariate) time series sequence denoted as $\mathbf{y} = \{y_t\}_{t=1}^{T}$, where $y_t \in \mathbb{R}^V$ represents the features at time step $t$, and $V$ is the number of variables.
+Our classification heads consist of **logistic regression** to test for linearaly seperable manifolds, **nearest centroid** for spherical clusters, **k-nearest neighbours** (with k=5 and distance weighted classification) for non-linear local neighbourhoods, and **multi-layer perceptron** (with one hidden layer of dimension 1024) for complex non-linear relationships (see [Appendix -@sec-class-heads] for formal definitions).
 
-Our objective is to model the posterior probability of a label $\ell$ given the sequence $\mathbf{y}$ and a set of model parameters $\theta$. However, in our context the parameters $\theta$ are partitioned into two distinct sets:
-
-$$
-    \theta = \{ \phi, \psi \}
-$$
-
-where $\phi$ represents the frozen parameters of the pre-trained model (the backbone) and $\psi$ represents the trained parameters of the classification head.
-
-The classification process operates in two stages. First, the sequence $\mathbf{y}$ is mapped to a latent embedding vector $\mathbf{z} \in \mathbb{R}^d$ by the backbone function $f_{\phi}$:
-
-$$
-    \mathbf{z} = f_{\phi}(\mathbf{y})
-$$
-
-Here, $\mathbf{z}$ represents the aggregated information of the time series extracted from a pre-trained model. Since $\phi$ is frozen, this mapping is deterministic and fixed during our evaluation.
-
-Next, we estimate the conditional probability of the label given the embedding using the classification head $g_{\psi}$:
-
-$$
-    P(\ell \mid \theta, \mathbf{y}) \approx P(\ell \mid \psi, \mathbf{z}) = g_{\psi}(\ell, \mathbf{z})
-$$
-
-Finally, we predict the class label $\hat{\ell}$ by selecting the label that maximizes this posterior probability:
-
-$$
-    \hat{\ell} = \underset{\ell \in \mathcal{L}}{\text{argmax}} \ P(\ell \mid \psi, f_{\phi}(\mathbf{y}))
-$$
-
-## Classification Heads
-
-**Logistic regression** is one of the most common classification methods. It assumes that the sample space can by divided into class clusters through hyperplane segmentation. **Nearest centroid** classification also assumes clustering, however this method assumes classes are contained within balls, evaluate compactness and convexity of label sets. To evaluate local manifold topology, we employ a **k-Nearest Neighbors** (k-NN) probe (k=5, distance-weighted). Unlike linear probes which assume global separability, k-NN tests if semantic classes form varying local neighborhoods in the latent space. To evaluate non-linearity and high-complexity manifolds, we utilize a 2 layer, **multi-layer perceptron** (MLP) with hidden dimension 1024 (see [Appendix -@sec-class-heads] for formal definitions).
-
-
-
-## Evaluation Metrics
-
-To asses model performance, we report four standard metrics. While Accuracy (A) serves as a primary metric for comparison against baseline, we also report Precision (P), Recall (R), and the $F_1$ score (harmonic mean of Precision and Recall). In the case of binary classification (labels 0 or 1):
-$$
-A = \frac{TP+TN}{P + N},\quad P = \frac{TP}{TP + FP},\quad R = \frac{TP}{P},\quad F_1 = \frac{2 \times P \times R}{P + R}
-$$
-where $TP$ is the number of true positive, $TN$ is the number of true negatives, $P$ is the number of positives and $N$ is the number of negatives with positive corresponding to the label 1 and negative corresponding the label 0. In the case of multinomial prediction (more than 2 labels), we take Precision, Recall and $F_1$ score to be the weighted average of the metrics computed for each class.
-
-These alternative metrics allow for us to evaluate the performance of models in the presence of imbalanced classes and diagnose how classifications are being made.
+To asses model performance, we report four standard metrics: Accuracy, Precision, Recall and $F_1$ score. While Accuracy serves as a primary metric for comparisons, Precision, Recall, and the $F_1$ score allow us to account for imbalanced classes. In the case of multinomial prediction, we take Precision, Recall and $F_1$ score to be the weighted average of the same metrics computed in a binary setting for each class.
 
 # Experiments and Results
 
@@ -228,9 +192,9 @@ These alternative metrics allow for us to evaluate the performance of models in 
 
 All experiments were conducted within a standardized benchmarking pipeline to ensure fair comparison. 
 
-**Preprocessing**. To reduce any information leakage, training and testing data were immediately split. Dimensionality reduction (PCA) and standardization were fitted only on the training split and applied to the testing split. Where appropriate, downsampling was applied, greatly reducing the size of the data files and increasing computational speed while retaining the same information.
+**Preprocessing**. To reduce any information leakage, training and testing data were immediately split. Dimensionality reduction (PCA) and standardization were fitted only on the training split and applied to the testing split. Where appropriate, downsampling was applied greatly reducing the size of the data files and increasing computational speed while retaining the same information.
 
-**Baselines**. We compare all pre-trained models against two basic controls. A custom embedding has been generated for each dataset, computing various statistical features in both time and frequency domain (see [Appendix -@sec-extracted-features] for the list of features included). These embeddings serve as a baseline for the other models, demonstrating the explainability of light-weight statistical methods compared to the much more computationally expensive and pre-trained models. We also include random embeddings which are constructed by generating 512 Uniform(0,1) random variables. This baseline establishes a "noise floor".
+**Baselines**. We compare all pre-trained models against two basic controls. A custom embedding has been generated for each dataset, computing various statistical features in both time and frequency domain (see [Appendix -@sec-extracted-features] for the list of features included). These embeddings serve as a baseline for the other models, demonstrating the explainability of light-weight statistical methods compared to the much more computationally expensive and pre-trained models. We also include random embeddings which are constructed by generating 512 independent Uniform(0,1) random variables. This baseline establishes a "noise floor".
 
 ## Financial Forecasting
 
