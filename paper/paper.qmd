@@ -67,7 +67,6 @@ df2 = pd.read_parquet("../data/raw/star/star-X-test.parquet")
 df1 = pd.read_parquet("../data/processed/esc-50/esc-50-X-test.parquet")
 df4 = pd.read_parquet("../data/processed/SP-500/SP-500-X-test.parquet")
 
-# 1. Setup Figure and GridSpec
 # Increased height slightly to (9, 2) to accommodate the gap without crushing the plots
 fig = plt.figure(figsize=(20, 8)) 
 
@@ -81,7 +80,6 @@ gs_outer = gridspec.GridSpec(2, 1, figure=fig, hspace=0.2,
 gs_top = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs_outer[0], hspace=0, wspace=0.03)
 gs_bot = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs_outer[1], hspace=0, wspace=0.03)
 
-# 2. Create Axes Array
 # We manually construct the 4x2 axes array to match the original 'ax' structure
 ax = np.empty((4, 2), dtype=object)
 
@@ -97,7 +95,6 @@ ax[2, 1] = fig.add_subplot(gs_bot[0, 1])
 ax[3, 0] = fig.add_subplot(gs_bot[1, 0])
 ax[3, 1] = fig.add_subplot(gs_bot[1, 1])
 
-# 3. Plotting (Original Logic)
 # PTB-XL
 ax[0,0].plot(df3.iloc[0])
 ax[1,0].plot(df3.iloc[127])
@@ -126,8 +123,6 @@ ax[3,0].plot(df1.iloc[20])
 ax[2,1].plot(df4.iloc[7000])
 ax[3,1].plot(df4.iloc[8])
 
-# No plt.tight_layout() or plt.subplots_adjust(hspace=0) needed here 
-# as spacing is handled by GridSpec
 for a in ax.flat:
     a.set_xticks([])
     a.set_yticks([])
@@ -211,7 +206,6 @@ In the astronomy domain, the custom baseline reached 90.3% accuracy, far outperf
 import pandas as pd
 import numpy as np
 
-# Define the file paths
 datasets = {
     "S&P 500": "../data/results/results_SP-500.csv",
     "PTB-XL": "../data/results/results_ptb-xl.csv",
@@ -222,7 +216,7 @@ datasets = {
 acc_cols = ['kNN_Acc', 'LogReg_Acc', 'Centroid_Acc', 'MLP_Acc_Mean']
 summary_data = {}
 
-# 1. Load Data
+
 for ds_name, file_path in datasets.items():
     try:
         df = pd.read_csv(file_path)
@@ -255,7 +249,7 @@ for group_name, models in model_groups.items():
 # Reorder dataframe
 summary_df = summary_df.reindex(ordered_models)
 
-# 2. Determine Best and Second Best Thresholds per Dataset
+# Determine Best and Second Best Thresholds per Dataset
 best_thresholds = {}
 second_best_thresholds = {}
 for ds in summary_df.columns:
@@ -263,7 +257,7 @@ for ds in summary_df.columns:
     best_thresholds[ds] = unique_vals[0] if len(unique_vals) > 0 else -1
     second_best_thresholds[ds] = unique_vals[1] if len(unique_vals) > 1 else -1
 
-# 3. Calculate Delta from Random
+# Calculate Delta from Random
 random_baseline = {}
 if 'RANDOM' in summary_df.index:
     for ds in summary_df.columns:
@@ -277,7 +271,7 @@ for ds in summary_df.columns:
     best_val = summary_df[summary_df.index != 'RANDOM'][ds].max()
     delta_from_random[ds] = best_val - random_baseline[ds] if pd.notna(best_val) else 0
 
-# 4. Generate LaTeX
+# Generate LaTeX
 print(r"\begin{table}[H]")
 print(r"\centering")
 print(r"\begin{tabular}{l|" + "c" * len(datasets) + "}")
@@ -359,7 +353,7 @@ head_names = ['k-NN', 'LogReg', 'Centroid', 'MLP']
 summary_data = {}
 best_head_data = {}
 
-# 1. Load Data and track best heads
+# Load Data and track best heads
 for ds_name, file_path in datasets.items():
     try:
         df = pd.read_csv(file_path)
@@ -415,7 +409,7 @@ for group_name, models in model_groups.items():
 summary_df = summary_df.reindex(ordered_models)
 head_df = head_df.reindex(ordered_models)
 
-# TABLE 2: Geometric analysis by model
+# Geometric analysis by model
 print(r"\begin{table}[H]")
 print(r"\centering")
 print(r"\begin{tabular}{l|cccc}")
@@ -519,7 +513,7 @@ model_map = {
     'W2V-esc': ('Audio (ESC-50)', 'Wav2Vec 2.0 (Specialist)'),
     'MOIRAI-esc': ('Audio (ESC-50)', 'Moirai (Generalist)')
 }
-# 3. Process the Data
+# Process the Data
 table_rows = []
 
 for raw_name, (domain, display_name) in model_map.items():
@@ -562,7 +556,7 @@ for raw_name, (domain, display_name) in model_map.items():
             'Collapse': collapse
         })
 
-# 4. Generate LaTeX
+# Generate LaTeX
 print(r"\begin{table}[ht]")
 print(r"\centering")
 print(r"\caption{Comparison of embedding space topology across domains. Note the contrast between the rich dimensionality of medical embeddings ($ID \approx 19.6$) versus the collapsed financial embeddings ($ID \approx 4.0$), despite large embedding sizes.}")
@@ -666,7 +660,7 @@ y_train = pd.Series([get_label(x) for x in y_train["diagnostic_superclass"]])
 y_test = pd.Series([get_label(x) for x in y_test["diagnostic_superclass"]])
 
 
-# 2. Compute Counts and Percentages
+# Compute Counts and Percentages
 # Train
 train_counts = y_train.value_counts()
 train_pct = y_train.value_counts(normalize=True).sort_index() * 100
@@ -675,7 +669,7 @@ train_pct = y_train.value_counts(normalize=True).sort_index() * 100
 test_counts = y_test.value_counts().sort_index()
 test_pct = y_test.value_counts(normalize=True).sort_index() * 100
 
-# 3. Combine into one DataFrame
+# Combine into one DataFrame
 df_summary = pd.DataFrame(
     {
         "Train Count": train_counts,
@@ -711,7 +705,7 @@ latex_body = df_final.to_latex(
     escape=True
 )
 
-# 6. Print Manual Wrapper with Centering
+# Print Manual Wrapper with Centering
 print(r"\begin{table}[H]")
 print(r"\centering")  # <--- This fixes the page alignment
 print(r"\caption{Label distribution for PTB-XL.}")
@@ -736,7 +730,7 @@ y_test = pd.read_parquet("../data/processed/star/star-y-test.parquet")
 y_train = pd.Series(y_train["Class"])
 y_test = pd.Series(y_test["Class"])
 
-# 2. Compute Counts and Percentages
+# Compute Counts and Percentages
 # Train
 train_counts = y_train.value_counts()
 train_pct = y_train.value_counts(normalize=True).sort_index() * 100
@@ -745,7 +739,7 @@ train_pct = y_train.value_counts(normalize=True).sort_index() * 100
 test_counts = y_test.value_counts().sort_index()
 test_pct = y_test.value_counts(normalize=True).sort_index() * 100
 
-# 3. Combine into one DataFrame
+# Combine into one DataFrame
 df_summary = pd.DataFrame(
     {
         "Train Count": train_counts,
@@ -777,13 +771,13 @@ df_final = pd.concat([df_summary, total_row])
 
 latex_body = df_final.to_latex(
     float_format="%.1f",
-    column_format="lrrrr", # Keeps text left-aligned, numbers right-aligned
+    column_format="lrrrr",
     escape=True
 )
 
-# 6. Print Manual Wrapper with Centering
+# Print Manual Wrapper with Centering
 print(r"\begin{table}[H]")
-print(r"\centering")  # <--- This fixes the page alignment
+print(r"\centering")
 print(r"\caption{Label distribution for StarEmbed}")
 print(r"\label{tab:labels-star}")
 print(latex_body)
@@ -808,7 +802,7 @@ y_test = pd.read_parquet("../data/processed/SP-500/SP-500-y-test.parquet")
 y_train = pd.Series(np.array(y_train).reshape(-1))
 y_test = pd.Series(np.array(y_test).reshape(-1))
 
-# 2. Compute Counts and Percentages
+# Compute Counts and Percentages
 # Train
 train_counts = y_train.value_counts()
 train_pct = y_train.value_counts(normalize=True).sort_index() * 100
@@ -817,7 +811,7 @@ train_pct = y_train.value_counts(normalize=True).sort_index() * 100
 test_counts = y_test.value_counts().sort_index()
 test_pct = y_test.value_counts(normalize=True).sort_index() * 100
 
-# 3. Combine into one DataFrame
+# Combine into one DataFrame
 df_summary = pd.DataFrame(
     {
         "Train Count": train_counts,
@@ -849,13 +843,13 @@ df_final = pd.concat([df_summary, total_row])
 
 latex_body = df_final.to_latex(
     float_format="%.1f",
-    column_format="lrrrr", # Keeps text left-aligned, numbers right-aligned
+    column_format="lrrrr",
     escape=True
 )
 
-# 6. Print Manual Wrapper with Centering
+# Print Manual Wrapper with Centering
 print(r"\begin{table}[H]")
-print(r"\centering")  # <--- This fixes the page alignment
+print(r"\centering")
 print(r"\caption{Label distribution for S\&P 500 stocks}")
 print(r"\label{tab:labels-sp-500}")
 print(latex_body)
@@ -1031,7 +1025,6 @@ The S&P-500 constituents data serves as a binary classification problem. Stock r
 #| tbl-pos: 'H!'
 
 def generate_table(df):
-  # 2. Configuration
   # Map how columns appear in CSV to how they should appear in Table
   classifiers_map = [
       ('kNN', 'k-NN'),
@@ -1049,7 +1042,7 @@ def generate_table(df):
   # Get list of models (Embeddings) from the dataframe
   models = df["Embedding"].tolist()
 
-  # 3. Helper function to find best/second best
+  # Helper function to find best/second best
   def get_formatted_row(classifier_code, metric_code):
       row_values = []
       
@@ -1094,7 +1087,7 @@ def generate_table(df):
           
       return formatted_cells
 
-  # 4. Generate LaTeX
+  # Generate LaTeX
   # Column setup: Classifier, Metric, then one col per model
   num_cols = 2 + len(models)
   col_setup = "ll" + "c" * len(models)
@@ -1209,8 +1202,6 @@ pretty_domain_map = {
     'esc-50': 'Audio (ESC-50)'
 }
 
-# 2. Start Table
-# Use table* for full-width spanning in two-column layouts
 print(r"\begin{table*}[h]") 
 print(r"\centering")
 print(r"\caption{\textbf{Full Geometric Analysis Results.} Detailed topological metrics for all evaluated models across four domains.}")
@@ -1221,7 +1212,6 @@ print(r"\toprule")
 print(r"\textbf{Domain} & \textbf{Model} & \textbf{Embed Size} & \textbf{Intrinsic Dim} & \textbf{Anisotropy}\\")
 print(r"\midrule")
 
-# 3. Process Rows
 existing_domains = [d for d in domain_order if d in df['Dataset'].unique()]
 
 for i, domain in enumerate(existing_domains):
