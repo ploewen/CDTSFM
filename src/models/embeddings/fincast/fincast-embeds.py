@@ -286,7 +286,6 @@ if __name__ == "__main__":
     embedder.to(device)
     embedder.eval()
 
-    # --- RUN EMBEDDINGS ---
-    # make_embeddings("ptb-xl", batch_size=BATCH_SIZE, device=device, model=embedder)
+    make_embeddings("ptb-xl", batch_size=BATCH_SIZE, device=device, model=embedder)
     make_embeddings("esc-50", batch_size=BATCH_SIZE, device=device, model=embedder)
-    # make_embeddings("SP-500", batch_size=256, device=device, model=embedder)
+    make_embeddings("SP-500", batch_size=256, device=device, model=embedder)

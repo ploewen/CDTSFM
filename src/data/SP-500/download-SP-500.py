@@ -28,7 +28,7 @@ logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
 # Get the table of S&P 500 stocks from Wikipedia to access tickers
 html = wikipedia.page("List of S&P 500 companies").html().encode("UTF-8")
-table = pd.read_html(html)[1]
+table = pd.read_html(html)[0]
 tickers = table["Symbol"].values
 
 
