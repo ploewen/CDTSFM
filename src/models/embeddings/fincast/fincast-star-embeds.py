@@ -16,8 +16,8 @@ from ffm.pytorch_patched_decoder_MOE import (
     create_quantiles,
 )
 
-# --- CONFIGURATION ---
-NUM_WORKERS = 4  # Increased for data loading speed
+# Config
+NUM_WORKERS = 4
 CHUNK_SIZE = 5000
 BATCH_SIZE = 128
 SEQUENCE_LENGTH = 32
@@ -143,7 +143,7 @@ def make_all_embeddings(X_df_full, batch_size, model, OUTPUT_PATH, device):
     )
 
     writer = None
-    schema = None  # Used to lock the schema after the first batch
+    schema = None
 
     # Counter for GC
     batch_counter = 0
@@ -178,12 +178,9 @@ def make_batch_embeddings(device, model, OUTPUT_PATH, writer, schema, batch):
     else:
         embeddings = model(batch_vals, batch_mask, batch_freq)
 
-    # Aggregate: Mean over time dimension
-    # CRITICAL FIX: Force to float32 immediately to prevent "halffloat" schema issues
     aggregated_embeddings = embeddings.mean(dim=1).float().cpu()
     final_array = aggregated_embeddings.numpy()
 
-    # --- ROW CONCATENATION LOGIC ---
     # Concatenate every two rows (StarEmbed logic)
     if final_array.shape[0] % 2 != 0:
         # Pad with zeros if odd number of rows
@@ -205,7 +202,6 @@ def make_batch_embeddings(device, model, OUTPUT_PATH, writer, schema, batch):
     # Convert to PyArrow Table
     if schema is not None:
         # For batch 2+, enforce the schema from batch 1
-        # This fixes the "vs file" error by ensuring metadata/types match exactly
         table = pa.Table.from_pandas(emb_df, schema=schema)
     else:
         # For batch 1, infer schema
