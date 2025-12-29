@@ -19,6 +19,7 @@ import polars as pl
 import pandas as pd
 import numpy as np
 import os
+from huggingface_hub import snapshot_download
 
 
 # Creates a dictionary entry for light colour c and observation i
@@ -49,18 +50,29 @@ def build_dict_for_split(data):
     return dict
 
 
+repo_id = "123anonymous123/StarEmbed"
+local_cache_path = snapshot_download(
+    repo_id=repo_id,
+    repo_type="dataset",
+    allow_patterns="data/*.parquet",  # Only download the parquet data folder
+)
+
+print(f"Data cached at: {local_cache_path}")
+
 # Login using e.g. `huggingface-cli login` to access this dataset
 splits = {
-    "train": "data/train-*.parquet",
-    "validation": "data/validation-00000-of-00001.parquet",
-    "test": "data/test-00000-of-00001.parquet",
+    "train": os.path.join(local_cache_path, "data/train-*.parquet"),
+    "validation": os.path.join(
+        local_cache_path, "data/validation-00000-of-00001.parquet"
+    ),
+    "test": os.path.join(local_cache_path, "data/test-00000-of-00001.parquet"),
 }
 
 # Download huggingface dataset
 print("Downloading data...")
-train = pl.read_parquet("hf://datasets/123anonymous123/StarEmbed/" + splits["train"])
-test = pl.read_parquet("hf://datasets/123anonymous123/StarEmbed/" + splits["test"])
-val = pl.read_parquet("hf://datasets/123anonymous123/StarEmbed/" + splits["validation"])
+train = pl.read_parquet(splits["train"])
+test = pl.read_parquet(splits["test"])
+val = pl.read_parquet(splits["validation"])
 
 print("Making dataframes...")
 

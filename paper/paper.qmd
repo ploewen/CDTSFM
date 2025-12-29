@@ -1,7 +1,8 @@
 ---
-title: "Beyond the Specialist: Assessing the Cross-Domain Zero-Shot Embeddings of Time Series Foundation Models"
+title: "Beyond the Specialist: Analyzing Cross-Domain Zero-Shot Embeddings of Time Series Foundation Models"
 author: "Philip Loewen"
-date: "2025-12-16"
+date: today
+date-format: long
 format:
   pdf:
     documentclass: article
@@ -29,30 +30,760 @@ format:
     tbl-pos: 'H!'  # Force all tables to stay put
     fig-pos: 'H'  # Force all figures to stay put
 bibliography: references.bib
-
+abstract: "The emergence of Time Series Foundation Models (TSFMs) promises a shift toward universal, zero-shot forecasting capabilities. However, their effectiveness across diverse domains remains an open question. In this study, we conduct a geometric audit of six TSFMs (TIMESFM, MOIRAI, Wav2Vec 2.0, ECGFounder, Astromer, FinCast) across four distinct domains: Finance (S&P 500 stocks), Healthcare (PTB-XL), Audio (ESC-50), and Astronomy (StarEmbed). By deploying a multi-head classification suite, ranging from logistic regression to multi-layer perceptrons, we benchmark these large-scale models against random embeddings and lightweight, domain-specific features. We find that TSFMs demonstrate strong positive transfer in deterministic, physical domains, yet fail to significantly outperform random noise in high-entropy financial environments. Furthermore, we observe that domain-specific foundation models do not consistently outperform generalist architectures. Notably, lightweight custom feature extractors frequently rival or outperform massive pre-trained models, achieving 90.3% accuracy in astronomy tasks where TSFMs capped at 67.9%, challenging the assumption that scale is the only path to performance. We conclude that current pre-training objectives successfully encode morphological and periodic laws but struggle to disentangle stochastic signal from noise, necessitating a re-evaluation of zero-shot transfer in non-stationary domains."
+thanks: "Code and data are available at: <https://github.com/ploewen/CDTSFM>."
 nocite: |
   @wagner-2020, @Goldberger2000-pr
 ---
 
-# Abstract
-The emergence of Time Series Foundation Models (TSFMs) promises a shift toward universal, zero-shot forecasting capabilities. However, their effectiveness across diverse domains remains an open question. In this study, we conduct a rigorous geometric audit of leading TSFMs (TIMESFM, MOIRAI, Wav2Vec 2.0, ECGFounder, Astromer, FinCast) across four distinct domains: Finance (S&P 500 stocks), Healthcare (PTB-XL), Audio (ESC-50), and Astronomy (StarEmbed). By deploying a multi-head classification suite, ranging from logistic regression to multi-layer perceptrons, we benchmark these large-scale models against strict random initializations and lightweight, domain-specific features. Our results reveal a critical "Stochasticity Barrier": while TSFMs demonstrate strong positive transfer in deterministic, physical domains, they fail to significantly outperform random noise in high-entropy financial environments (Accuracy \approx 52%). Furthermore, we observe that domain-specific foundation models do not consistently outperform generalist architectures. Notably, lightweight custom feature extractors frequently rival or outperform massive pre-trained models, achieving 90.3% accuracy in astronomy tasks where TSFMs capped at 67.9%, challenging the assumption that scale is the only path to performance. We conclude that current pre-training objectives successfully encode morphological and periodic laws but struggle to disentangle stochastic signal from noise, necessitating a re-evaluation of zero-shot transfer in non-stationary domains.
-
-Code is available at <https://github.com/ploewen/CDTSFM>.
-
 # Introduction
 
-The development of foundation models in natural language processing has brought forth models capable of handling a myriad of tasks, from understanding and developing code, poetry, law, research papers equally well. Naturally, we have developed an interest in creating models working on other forms of data with the same capabilities. In this paper we look specifically at the domain of Time Series data. Working with time series data is inherently challenging due to high autocorrelation and the presence of complex sequential, periodic, and stochastic patterns. Time Series Foundation Models (TSFMs), are a rising class of models which promise to deliver predictive and classification power with little to no fine-tuning necessary. We wonder how do these "generalist" TSFM models that are pre-trained within a variety of different domains, perform compared to "specialist" models pretrained within the specific domain of application. Furthermore, we investigate the geometry of the zero-shot embeddings and if they are different based on the data being classified. 
+Time Series Foundation Models (TSFMs) are an increasingly popular class of models that promise to deliver predictive and classification power with little to no fine-tuning necessary. Recent advances have suggested that pre-trained forecasting models can serve as useful zero-shot feature extractors [@auer2025pretrainedforecastingmodelsstrong] for classification. However, the universality of these models in forecasting tasks has been challenged by @olivares2025realisticevaluationcrossfrequencytransfer, which emphasizes the difficulty of cross-domain learning and notes that the accuracy of statistical baselines is frequently underreported. We extend this line of inquiry, which has largely focused on generalist architectures, by including domain-specific models in our benchmark. This inclusion of specialists allows us to quantify the trade-off between massive scale and domain-focused training.
 
-Standard evaluation methods often rely on Logistic Regression. While this is often an effective method for classifying linearly separable features, it assumes that the previous architecture linearizes the input data. In many domains, this assumption might fail, especially in the presence of low signal to noise ratio, such as in finance or acoustic processing. This assumption may lead to false negatives, where embeddings are incorrectly judged as having low informational content simply because their rich, non-linear features cannot be decoded by a linear probe.
+We investigate the zero-shot, cross-domain capabilities of these models in four different domains: finance (S&P 500 stocks), healthcare (electrocardiography), audio (environmental sounds), and astronomy (variable star light curves). From each dataset, we extract embeddings and apply a suite of classification heads, including logistic regression, nearest centroid, k-nearest neighbours, and a multi-layer perceptron. This multi-probe approach allows us to characterize the geometric structure of the embedding spaces, thereby diagnosing how different pre-training objectives shape the representation topology across diverse signal types.
 
-Here, we investigate the zero-shot, cross domain capabilities of these models in four different subjects. We look at financial, acoustic, biological and physics data from which we extract embeddings and ultimately apply a suite of classification heads including logistic regression, nearest centroid, k-Nearest Neighbours and a Multi-Layer Perceptron. These allow us to diagnose the topology of the feature space generated by our models using a variety of classification regimes.
+A key test of foundation model quality is whether pre-training on domain data produces representations that capture domain-relevant features. For instance, FinCast, trained on financial data, should implicitly encode momentum indicators, volatility patterns, and mean-reversion dynamics that our custom RSI/MACD features explicitly compute. If specialists fail to match custom features, this suggests their pre-training objectives are misaligned with downstream utility.
 
 # Data
+
+We consider 4 datasets spanning the audio, astronomical, finance, and medical domains. Specifically, we utilize the **PTB-XL** [@Wagner2020-ps] dataset for electrocardiography (ECG), **ESC-50** [@Piczak2015-be] for environmental audio classfication, daily stock returns from **S&P 500 constituents**, and **StarEmbed** [@li2025starembedbenchmarkingtimeseries] for astronomical light curve classification. This multi-domain approach allows us to test TSFM embeddings against various signal types, with each dataset posing a distinct challenge.
+
+We provide data examples in @fig-data-examples and summarize the descriptive statistics and downstream tasks for each dataset in @tbl-datasets. Comprehensive descriptions of the datasets, including preprocessing steps and label distributions, are provided in [Appendix -@sec-datasets].
+
+```{python}
+#| label: fig-data-examples
+#| echo: false
+#| fig-cap: "Examples from PTB-XL (top left), StarEmbed (top right), ESC-50 (bottom left), and S&P 500 constituents (bottom right)."
+#| out-width: "100%"
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
+
+# Load Data
+df3 = pd.read_parquet("../data/processed/ptb-xl/ptb-xl-X-test.parquet")
+df2 = pd.read_parquet("../data/raw/star/star-X-test.parquet")
+df1 = pd.read_parquet("../data/processed/esc-50/esc-50-X-test.parquet")
+df4 = pd.read_parquet("../data/processed/SP-500/SP-500-X-test.parquet")
+
+# Increased height slightly to (9, 2) to accommodate the gap without crushing the plots
+fig = plt.figure(figsize=(20, 8)) 
+
+# Create an outer GridSpec with 2 rows (blocks) and a gap between them
+# hspace=0.4 adds the space between the top block and the bottom block
+gs_outer = gridspec.GridSpec(2, 1, figure=fig, hspace=0.2, 
+                             left=0.05, right=0.98, top=0.95, bottom=0.05)
+
+# Create inner GridSpecs for the top and bottom blocks
+# hspace=0 keeps the rows strictly adjacent within each block
+gs_top = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs_outer[0], hspace=0, wspace=0.03)
+gs_bot = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs_outer[1], hspace=0, wspace=0.03)
+
+# We manually construct the 4x2 axes array to match the original 'ax' structure
+ax = np.empty((4, 2), dtype=object)
+
+# Top Block (Row 0 and 1)
+ax[0, 0] = fig.add_subplot(gs_top[0, 0])
+ax[0, 1] = fig.add_subplot(gs_top[0, 1])
+ax[1, 0] = fig.add_subplot(gs_top[1, 0])
+ax[1, 1] = fig.add_subplot(gs_top[1, 1])
+
+# Bottom Block (Row 2 and 3)
+ax[2, 0] = fig.add_subplot(gs_bot[0, 0])
+ax[2, 1] = fig.add_subplot(gs_bot[0, 1])
+ax[3, 0] = fig.add_subplot(gs_bot[1, 0])
+ax[3, 1] = fig.add_subplot(gs_bot[1, 1])
+
+# PTB-XL
+ax[0,0].plot(df3.iloc[0])
+ax[1,0].plot(df3.iloc[127])
+
+# Star Data
+index = 38
+index2 = 108
+green_col = "mediumseagreen"
+red_col = "crimson"
+green_marker = "+"
+red_marker = "."
+
+ax[0,1].scatter(df2["g_mjd"][index], df2["g_target"][index], c=green_col, marker=green_marker, label = "g passband")
+ax[0,1].scatter(df2["r_mjd"][index], df2["r_target"][index], c=red_col, marker=red_marker, label = "r passband")
+ax[0,1].legend()
+ax[1,1].scatter(df2["g_mjd"][index2], df2["g_target"][index2], c=green_col, marker=green_marker)
+ax[1,1].scatter(df2["r_mjd"][index2], df2["r_target"][index2], c=red_col, marker=red_marker)
+ax[0,1].yaxis.set_inverted(True)
+ax[1,1].yaxis.set_inverted(True)
+
+# ESC-50
+ax[2,0].plot(df1.iloc[0])
+ax[3,0].plot(df1.iloc[20])
+
+# SP-500
+ax[2,1].plot(df4.iloc[7000])
+ax[3,1].plot(df4.iloc[8])
+
+for a in ax.flat:
+    a.set_xticks([])
+    a.set_yticks([])
+    a.margins(x=0)
+plt.show()
+```
+
+
+```{python}
+#| label: tbl-datasets
+#| tbl-cap: Dataset summaries
+#| echo: false
+
+from IPython.display import Markdown
+from tabulate import tabulate
+
+table = [["PTB-XL","Highly periodic and high inter-patient variability", "6", "80000", "21799"],
+         ["StarEmbed", "Multiband and irregularly sampled with variable series length", "7", "Variable", "41498"],
+         ["ESC-50","High frequency with similar classes (e.g. rain vs crackling fire)", "50", "12000", "2000"],
+         ["S&P 500","Low signal to noise ratio, highly stochastic", "2", "80", "359312"]]
+Markdown(tabulate(
+  table, 
+  headers=["Dataset","Challenge", "Number of classes", "Series length", "Sample size"],
+  tablefmt="grid",
+  maxcolwidths=[None, 30, None, None, None]
+))
+```
+
+# Models
+
+We evaluate six diverse models, categorized into two different groups: generalist models designed for universal forecasting and classification, and specialist models trained in specific data domains. Our generalist models are **Moirai** [@woo2024unifiedtraininguniversaltime] and **TimesFM** [@das2024decoderonlyfoundationmodeltimeseries], which are compared to the domain specialists **Astromer** [@donoso-oliva-2022], **ECGFounder** [@li2025electrocardiogramfoundationmodelbuilt], **FinCast** [@zhu2025fincastfoundationmodelfinancial], and **Wav2Vec 2.0** [@baevski2020wav2vec20frameworkselfsupervised]. Models were selected to prioritize open-weight availability and to span the primary architecture paradigms in time series learning tasks.
+
+## General Models
+**Moirai** is a masked-encoder based time series forecasting model developed by Salesforce Research to perform across domains [@woo2024unifiedtraininguniversaltime]. Moirai utilizes multiple patch size projection layers and an Any-variate Attention mechanism, enabling it to treat data with varying temporal patterns and dimensionality seamlessly. Furthermore, the model addresses the issue of probabilistic forecasting by employing a mixture of parametric distributions.
+
+**TimesFM** is a model developed by Google Research [@das2024decoderonlyfoundationmodeltimeseries], employing a Decoder-Only paradigm. TimesFM draws inspiration from Large Language Models (LLMs) and processes non-overlapping patches of the series into tokens with a Multi-Layer Perceptron, using a Transformer architecture to autoregressively predict following patches. The pre-training set consists of a mixture of 100 billion time points, composed of both real-world data (Google Trends, Wikipedia Pageviews) and synthetic data, generated through statistical models and physical simulations.
+
+## Domain Specific Models
+
+While generalist models aim for universality, **Astromer** [@donoso-oliva-2022] demonstrates the power of domain-focused pre-training. It is a self-supervised, Transformer-based encoder-decoder designed specifically for astronomical light curve data, representing the brightness of celestial objects. ASTROMER has been developed to handle the irregular sampling inherent to telescopic observation (e.g., gaps due to daylight or weather).
+
+**ECGFounder** [@li2025electrocardiogramfoundationmodelbuilt] is a large-scale encoder designed for electrocardiogram (ECG) analysis. Trained on over 10 million 12-lead ECG recordings, it learns to identify 150 distinct cardiac abnormalities. ECGFounder employs a RegNet (ResNet-based) backbone optimized for capturing the precise morphological features of cardiac cycles (such as QRS complex width and ST-segment elevation). 
+
+**Wav2Vec 2.0** (W2V) [@baevski2020wav2vec20frameworkselfsupervised] is a model developed by Meta AI, employing a dual-stage architecture. It first employs a multi-layer Convolutional Neural Network (CNN) to process raw waveforms and extract latent feature representations, followed by a context network which uses a standard Transformer architecture. Wav2Vec 2.0's key contribution is a Contrastive Learning objective combined with Product Quantization. This architecture builds latent representations by concatenating entries of a codebook, allowing it to capture complex frequency-domain dependencies and local temporal structures inherent to sound.
+
+**FinCast** [@zhu2025fincastfoundationmodelfinancial] is a foundation model tailored for financial time series forecasting. It has been trained exclusively on large-scale financial data, encompassing diverse asset classes (equities, forex, commodities) and frequencies. The model uses input tokenization, followed by Causal Attention, sparse Mixture of Experts (MOE) blocks, and a Decoder. FinCast aims to capture domain-specific latent dynamics like volatility clustering and regime changes that generic models may fail to prioritize.
+
+
+# Methodology
+
+To evaluate the instrinsic geometry of TSFM representations, we adopt a fixed-feature extraction protocol. For each input series $\mathbf{y}$, we compute a latent embedding $\mathbf{z} = f_\phi(\mathbf{y})$ using pre-trained model parameters $\phi$. Crucially, $\phi$ remains frozen throughout our experiments to prevent task-specific adaptation. We then train a set of lightweight classification heads $g_\psi(\mathbf{z})$ to map these embeddings to target labels. This decoupling allows us to isolate the quality of the zero-shot embeddings from the capacity to learn new features. In the case of the StarEmbed dataset, which contains two variates, the embeddings generated for each band are concatenated following @auer2025pretrainedforecastingmodelsstrong. 
+
+Our classification heads consist of **logistic regression** to test for linearly seperable manifolds, **nearest centroid** for spherical clusters, **k-nearest neighbours** (with k=5 and distance weighted classification) for non-linear local neighbourhoods, and a **multi-layer perceptron** (with one hidden layer of dimension 1024) for complex non-linear relationships (see [Appendix -@sec-class-heads] for formal definitions).
+
+To assess model performance, we report four standard metrics: Accuracy, Precision, Recall, and $F_1$ score. While Accuracy serves as a primary metric for comparisons, the other metrics allow us to account for imbalanced classes. In the case of multinomial prediction, we take Precision, Recall and, $F_1$ score to be the weighted average of the same metrics computed in a binary setting for each class.
+
+Finally, for each data-model pair we estimate the intrinsic dimension using 2-nearest neighbours [@Facco2017], and anisotropy by computing the average cosine similarity, to analyze the embedding geometry.
+
+# Experiments and Results
+
+## Experiment Setup
+
+All experiments were conducted within a standardized benchmarking pipeline to ensure fair comparison. 
+
+**Preprocessing**. To reduce any information leakage, training and testing data were immediately split. Dimensionality reduction (PCA) and standardization were fitted only on the training split and applied to the testing split. Where appropriate, downsampling was applied, greatly reducing the size of the data files and increasing computational speed while retaining the same information.
+
+**Baselines**. We compare all pre-trained models against two basic controls. A custom embedding has been generated for each dataset, computing various statistical features in both the time and frequency domains (see [Appendix -@sec-extracted-features] for the list of features included). These embeddings serve as a baseline for the other models, demonstrating the explainability of light-weight statistical methods compared to the much more computationally expensive and pre-trained models. We also include random embeddings, which are constructed by generating vectors of length 512 from independent Uniform(0,1) random variables. This random embedding allows us to measure class balance bias.
+
+
+## Results
+
+Tables $\ref{tab:best_performance_summary}$ and $\ref{tab:geometry_by_model}$ summarize the results of our experiment. Complete tables of results are given in Appendix -@sec-full-results. Table $\ref{tab:best_performance_summary}$ demonstrates a high variance in transferability between signal types. Notably, the lightweight custom features achieved the highest accuracy in 2 out of 4 datasets. 
+
+In the astronomy domain, the custom baseline reached 90.3% accuracy, far outperforming the nearest model (Astromer, 67.9%). Surprisingly, ECGFounder achieved the best accuracy at 47.5% in the audio classification task, outpacing the specialist Wav2Vec (28.2%). Performance in the S&P 500 dataset remained uniformly low. The best performing foundation models (Wav2Vec, Astromer, 52.4%) achieved a slight edge over the random embeddings (52.0%). Within the ECG classification task, the top models were Moirai (65.7%), ECGFounder (63.5%), and TimesFM (62.2%), exhibiting positive transferability in the generalist models.
+
+
+```{python}
+#| echo: false
+#| output: asis
+#| 
+import pandas as pd
+import numpy as np
+
+datasets = {
+    "S&P 500": "../data/results/results_SP-500.csv",
+    "PTB-XL": "../data/results/results_ptb-xl.csv",
+    "ESC-50": "../data/results/results_esc-50.csv",
+    "StarEmbed": "../data/results/results_star.csv"
+}
+
+acc_cols = ['kNN_Acc', 'LogReg_Acc', 'Centroid_Acc', 'MLP_Acc_Mean']
+summary_data = {}
+
+
+for ds_name, file_path in datasets.items():
+    try:
+        df = pd.read_csv(file_path)
+        ds_results = {}
+        for index, row in df.iterrows():
+            model_name = row['Embedding']
+            values = [row[col] for col in acc_cols if col in df.columns]
+            if values:
+                ds_results[model_name] = max(values)
+            else:
+                ds_results[model_name] = 0.0
+        summary_data[ds_name] = ds_results
+    except FileNotFoundError:
+        summary_data[ds_name] = {}
+
+summary_df = pd.DataFrame(summary_data)
+
+# Define model groupings
+model_groups = {
+    'Generalist Models': ['TimesFM', 'Moirai'],
+    'Domain Specialists': ['Wav2Vec', 'Astromer', 'FinCast', 'ECGFounder'],
+    'Baselines': ['Custom', 'Random']
+}
+
+# Create ordered list of models by group
+ordered_models = []
+for group_name, models in model_groups.items():
+    ordered_models.extend([m for m in models if m in summary_df.index])
+
+# Reorder dataframe
+summary_df = summary_df.reindex(ordered_models)
+
+# Determine Best and Second Best Thresholds per Dataset
+best_thresholds = {}
+second_best_thresholds = {}
+for ds in summary_df.columns:
+    unique_vals = sorted([x for x in summary_df[ds].unique() if pd.notna(x) and x > 0], reverse=True)
+    best_thresholds[ds] = unique_vals[0] if len(unique_vals) > 0 else -1
+    second_best_thresholds[ds] = unique_vals[1] if len(unique_vals) > 1 else -1
+
+# Calculate Delta from Random
+random_baseline = {}
+if 'RANDOM' in summary_df.index:
+    for ds in summary_df.columns:
+        random_baseline[ds] = summary_df.loc['RANDOM', ds]
+else:
+    random_baseline = {ds: 0 for ds in summary_df.columns}
+
+delta_from_random = {}
+for ds in summary_df.columns:
+    # Get best non-random result
+    best_val = summary_df[summary_df.index != 'RANDOM'][ds].max()
+    delta_from_random[ds] = best_val - random_baseline[ds] if pd.notna(best_val) else 0
+
+# Generate LaTeX
+print(r"\begin{table}[H]")
+print(r"\centering")
+print(r"\begin{tabular}{l|" + "c" * len(datasets) + "}")
+print(r"\hline")
+
+# Header
+safe_headers = [c.replace("&", "\\&") for c in summary_df.columns]
+print(r"\textbf{Model} & " + " & ".join([f"\\textbf{{{h}}}" for h in safe_headers]) + r" \\")
+print(r"\hline")
+
+# Print models by group
+current_group_idx = 0
+group_names = list(model_groups.keys())
+
+for model in summary_df.index:
+    # Check if we need to print a group header
+    for group_idx, (group_name, models) in enumerate(model_groups.items()):
+        if model == models[0] and model in summary_df.index:
+            if current_group_idx > 0:
+                print(r"\hline")
+            print(r"\multicolumn{" + str(len(datasets) + 1) + r"}{c}{\textit{" + group_name + r"}} \\")
+            print(r"\hline")
+            current_group_idx = group_idx + 1
+            break
+    
+    # Print model row
+    clean_model = model.replace("_", "\\_")
+    row_str = f"{clean_model}"
+    vals = summary_df.loc[model]
+    
+    for ds in summary_df.columns:
+        val = vals[ds]
+        if pd.isna(val) or val == 0:
+            val_str = "-"
+            row_str += f" & {val_str}"
+            continue
+        
+        val_str = f"{val:.3f}"
+        
+        # Apply Highlight Logic
+        if val == best_thresholds[ds]:
+            row_str += f" & \\textbf{{{val_str}}}"
+        elif val == second_best_thresholds[ds]:
+            row_str += f" & \\underline{{{val_str}}}"
+        else:
+            row_str += f" & {val_str}"
+    
+    print(row_str + r" \\")
+
+print(r"\hline")
+print(r"\end{tabular}")
+print(r"\caption{Summary of best accuracy achieved by each model across all datasets (using best-performing classification head). Best results are \textbf{bold}, second best are \underline{underlined}.}")
+print(r"\label{tab:best_performance_summary}")
+print(r"\end{table}")
+```
+
+
+Table $\ref{tab:geometry_by_model}$ characterizes the geometric structure of embeddings by showing which classification heads achieved optimal performance for each model across all datasets. 
+
+The logistic regression head achieved top performance in 21 of 32 model-dataset combinations, with the multi-layer perceptron achieving second place with 10 top results. Importantly, k-nearest neighbours only achieved one top result, with the nearest centroid never achieving top performance. The custom features distinguish themselves from the time series models as they uniquely relied on the logistic regression head to achieve top results, indicating a strongly linearly separable embedding space.
+
+```{python}
+#| echo: false
+#| output: asis
+import pandas as pd
+import numpy as np
+
+# Define the file paths
+datasets = {
+    "S&P 500": "../data/results/results_SP-500.csv",
+    "PTB-XL": "../data/results/results_ptb-xl.csv",
+    "ESC-50": "../data/results/results_esc-50.csv",
+    "StarEmbed": "../data/results/results_star.csv"
+}
+
+acc_cols = ['kNN_Acc', 'LogReg_Acc', 'Centroid_Acc', 'MLP_Acc_Mean']
+head_names = ['k-NN', 'LogReg', 'Centroid', 'MLP']
+
+summary_data = {}
+best_head_data = {}
+
+# Load Data and track best heads
+for ds_name, file_path in datasets.items():
+    try:
+        df = pd.read_csv(file_path)
+        ds_results = {}
+        ds_heads = {}
+        
+        for index, row in df.iterrows():
+            model_name = row['Embedding']
+            
+            # Get all accuracy values with their corresponding head names
+            values = []
+            for i, col in enumerate(acc_cols):
+                if col in df.columns and pd.notna(row[col]):
+                    values.append((row[col], head_names[i]))
+            
+            if values:
+                # Find the best accuracy and its corresponding head
+                best_val, best_head = max(values, key=lambda x: x[0])
+                ds_results[model_name] = best_val
+                ds_heads[model_name] = best_head
+            else:
+                ds_results[model_name] = 0.0
+                ds_heads[model_name] = '-'
+                
+        summary_data[ds_name] = ds_results
+        best_head_data[ds_name] = ds_heads
+        
+    except FileNotFoundError:
+        print(f"Warning: Could not find {file_path}")
+        summary_data[ds_name] = {}
+        best_head_data[ds_name] = {}
+
+# Create DataFrames
+summary_df = pd.DataFrame(summary_data)
+head_df = pd.DataFrame(best_head_data)
+
+# Define model groupings
+model_groups = {
+    'Generalist Models': ['TimesFM', 'Moirai'],
+    'Domain Specialists': ['Wav2Vec', 'Astromer', 'FinCast', 'ECGFounder'],
+    'Baselines': ['Custom', 'Random']
+}
+
+
+# Create ordered list of models by group (only include models that exist)
+ordered_models = []
+for group_name, models in model_groups.items():
+    for m in models:
+        if m in summary_df.index:
+            ordered_models.append(m)
+
+# Reorder dataframes
+summary_df = summary_df.reindex(ordered_models)
+head_df = head_df.reindex(ordered_models)
+
+# Geometric analysis by model
+print(r"\begin{table}[H]")
+print(r"\centering")
+print(r"\begin{tabular}{l|cccc}")
+print(r"\hline")
+print(r"\textbf{Model} & \textbf{LogReg} & \textbf{k-NN} & \textbf{MLP} & \textbf{Centroid} \\")
+print(r"\hline")
+
+# Track overall statistics
+total_by_head = {'LogReg': 0, 'k-NN': 0, 'MLP': 0, 'Centroid': 0}
+
+# Group headers
+current_group_idx = 0
+for model in ordered_models:
+    # Check if we need to print a group header
+    for group_idx, (group_name, models) in enumerate(model_groups.items()):
+        if model == models[0] and model in head_df.index:
+            if current_group_idx > 0:
+                print(r"\hline")
+            print(r"\multicolumn{5}{c}{\textit{" + group_name + r"}} \\")
+            print(r"\hline")
+            current_group_idx = group_idx + 1
+            break
+    
+    clean_model = model.replace("_", "\\_")
+    
+    # Count occurrences of each head for this model across all datasets
+    model_heads = head_df.loc[model]
+    head_counts = {
+        'LogReg': (model_heads == 'LogReg').sum(),
+        'k-NN': (model_heads == 'k-NN').sum(),
+        'MLP': (model_heads == 'MLP').sum(),
+        'Centroid': (model_heads == 'Centroid').sum()
+    }
+    
+    # Update totals
+    for head, count in head_counts.items():
+        total_by_head[head] += count
+    
+    # Find dominant head(s) - handle ties
+    if sum(head_counts.values()) > 0:
+        max_count = max(head_counts.values())
+        dominant_heads = [head for head, count in head_counts.items() if count == max_count and count > 0]
+    else:
+        dominant_heads = []
+    
+    # Format counts with bold for dominant (including ties)
+    lr_str = f"\\textbf{{{head_counts['LogReg']}}}" if 'LogReg' in dominant_heads else str(head_counts['LogReg'])
+    knn_str = f"\\textbf{{{head_counts['k-NN']}}}" if 'k-NN' in dominant_heads else str(head_counts['k-NN'])
+    mlp_str = f"\\textbf{{{head_counts['MLP']}}}" if 'MLP' in dominant_heads else str(head_counts['MLP'])
+    cent_str = f"\\textbf{{{head_counts['Centroid']}}}" if 'Centroid' in dominant_heads else str(head_counts['Centroid'])
+    
+    print(f"{clean_model} & {lr_str} & {knn_str} & {mlp_str} & {cent_str} \\\\")
+
+# Add total row
+print(r"\hline")
+total_str = "\\textbf{Total}"
+for head in ['LogReg', 'k-NN', 'MLP', 'Centroid']:
+    total_str += f" & \\textbf{{{total_by_head[head]}}}"
+print(total_str + r" \\")
+
+print(r"\hline")
+print(r"\end{tabular}")
+print(r"\caption{Distribution of best-performing classification heads for each model across 4 datasets. Bold indicates the dominant head(s) for each model (ties shown as multiple bold values).}")
+print(r"\label{tab:geometry_by_model}")
+print(r"\end{table}")
+```
+
+Table $\ref{tab:dimensionality}$ presents a partial geometric analysis of the embedding spaces (the full analysis for all data-model combinations can be found in Appendix -@sec-full-geom). We computed the intrinsic dimension and anisotropy (average cosine similarity) to evaluate the topological structure of the learned representations.
+
+The random baseline for all datasets exhibits high intrinsic dimension (122.5-159.9) and moderate anisotropy ($\approx$ 75%). While ECGFounder maintained a moderately high intrinsic dimension, explaining its success in heartwave classification, other specialists underwent severe manifold collapse. Most notably in the financial domain, despite the high-entrop baseline (with ID 159.9), all other models were severely compressed (collapse ratio 91.2%-97.5%).
+
+```{python}
+#| echo: false
+#| output: asis
+df = pd.read_csv("paper_files/geometric_audit_results.csv")
+
+# Format: Raw_Model_Name: (Domain_Label, Display_Name)
+# Define the exact rows to display
+model_map = {
+    # Finance
+    'RANDOM-SP': ('Finance (S&P 500)', 'Random Baseline'),
+    'CUSTOM-SP': ('Finance (S&P 500)', 'Custom Baseline'),
+    'FinCast-SP': ('Finance (S&P 500)', 'FinCast (Specialist)'),
+    'MOIRAI-SP': ('Finance (S&P 500)', 'Moirai (Generalist)'),
+    
+    # Astronomy
+    'RANDOM': ('Astronomy (Star)', 'Random Baseline'),
+    'CUSTOM': ('Astronomy (Star)', 'Custom Baseline'),
+    'ASTRO': ('Astronomy (Star)', 'Astromer (Specialist)'),
+    'MOIRAI': ('Astronomy (Star)', 'Moirai (Generalist)'),
+    
+    # Medical
+    'RANDOM-ptb': ('Medical (PTB-XL)', 'Random Baseline'),
+    'CUSTOM-ptb': ('Medical (PTB-XL)', 'Custom Baseline'),
+    'ECGFounder-ptb': ('Medical (PTB-XL)', 'ECGFounder (Specialist)'),
+    'MOIRAI-ptb': ('Medical (PTB-XL)', 'Moirai (Generalist)'),
+    
+    # --- NEW: Audio Section ---
+    'RANDOM-esc': ('Audio (ESC-50)', 'Random Baseline'),
+    'CUSTOM-esc': ('Audio (ESC-50)', 'Custom Baseline'),
+    'W2V-esc': ('Audio (ESC-50)', 'Wav2Vec 2.0 (Specialist)'),
+    'MOIRAI-esc': ('Audio (ESC-50)', 'Moirai (Generalist)')
+}
+# Process the Data
+table_rows = []
+
+for raw_name, (domain, display_name) in model_map.items():
+    row = df[df['Model'] == raw_name]
+    
+    if not row.empty:
+        # Extract metrics
+        id_val = row['Intrinsic_Dim'].values[0]
+        ani_val = row['Anisotropy'].values[0]
+        pca_val = row['PCA_Dim_95'].values[0]
+        emb_size = row['Embedding_Size'].values[0]
+        
+        # Calculate Collapse Ratio
+        # Dynamic lookup for Random baseline
+        random_key = [k for k, v in model_map.items() if v[0] == domain and 'Random' in v[1]][0]
+        random_id = df[df['Model'] == random_key]['Intrinsic_Dim'].values[0]
+        
+        if 'Random' in display_name:
+            collapse = "--"
+        else:
+            ratio = (1 - (id_val / random_id)) * 100
+            collapse = f"{ratio:.1f}\%"
+
+        # Simple formatting (No Bold)
+        id_str = f"{id_val:.1f}"
+        ani_str = f"{ani_val:.3f}"
+        pca_str = f"{int(pca_val)}"
+
+        # Safe strings for LaTeX
+        safe_domain = domain.replace("&", "\\&")
+        safe_name = display_name.replace("&", "\\&")
+
+        table_rows.append({
+            'Domain': safe_domain,
+            'Model': safe_name,
+            'Size': int(emb_size),
+            'ID': id_str,
+            'Anisotropy': ani_str,
+            'PCA': pca_str,
+            'Collapse': collapse
+        })
+
+# Generate LaTeX
+print(r"\begin{table}[ht]")
+print(r"\centering")
+print(r"\caption{Comparison of embedding space topology across domains. Note the contrast between the rich dimensionality of medical embeddings ($ID \approx 19.6$) versus the collapsed financial embeddings ($ID \approx 4.0$), despite large embedding sizes.}")
+print(r"\label{tab:geometry}")
+print(r"\resizebox{\textwidth}{!}{%")
+print(r"\begin{tabular}{llccc}") 
+print(r"\toprule")
+print(r"\textbf{Domain} & \textbf{Model} & \textbf{Embed Size} & \textbf{Intrinsic Dim} & \textbf{Anisotropy}\\")
+print(r"\midrule")
+
+current_domain = ""
+for item in table_rows:
+    if item['Domain'] != current_domain:
+        if current_domain != "": print(r"\midrule")
+        print(f"\\multirow{{3}}{{*}}{{\\textbf{{{item['Domain']}}}}} & {item['Model']} & {item['Size']} & {item['ID']} & {item['Anisotropy']}\\\\")
+        current_domain = item['Domain']
+    else:
+        print(f" & {item['Model']} & {item['Size']} & {item['ID']} & {item['Anisotropy']}\\\\")
+print(r"\bottomrule")
+print(r"\end{tabular}%")
+print(r"\label{tab:dimensionality}")
+print(r"}")
+print(r"\end{table}")
+```
+
+
+# Discussion
+
+## Model Performance
+
+Our results reveal a distinct dichotomy in the efficacy of TSFMs. For Heart Rhythm classification Moirai and TimesFM demonstrated strong positive transfer achieving results competitive with the domain specialist ECGFounder. However, within the light curve and stock classification tasks, they performed on par with the random noise embedding, demonstrating negative transfer when compared to the specialist models. Furthermore, the dominance of the Custom features in all but the Heart Rhythm domain challenges the "universal" applicability of pre-trained models.
+
+The results in Table 1 show that TimesFM and Moirai failed to outperform the random embeddings, showing a lack of generalizability and suggesting that features learned during pretraining on a period or clean data do not map to the highly volatile, chaotic dynamics of financial markets.
+
+In contrast, Table 2 demonstrates the clear utility of foundation models in domains determined by highly periodic data. Moirai, TimesFM, and ECGFounder outperformed all other models by a significant margin. This result suggests that large-scale pretraining captures universal morphological features such as waveform periodicity and shape.
+
+Surprisingly, ECGFounder, trained on heartbeat data, achieved the highest accuracy (47.5%) on the audio classification task, outperforming the generalists TimesFM (37.0%) and Moirai (32.8%) as well as the specialist Wav2Vec (25.7%). This points to a successful transfer between domains. This may be due to the similarities in tasks, where both audio and heartbeats can be understood do to their frequency domain properties.
+
+In the astronomy domain, the Custom features drastically outperformed all other models, achieving 90.3% accuracy with the MLP. In comparison, the second-best model was Astromer reaching only 67.9% accuracy. This 22% performance gap indicates that current embeddings fail to capture the high-precision phase information required to correctly distinguish star classes, whereas a statistical model successfully captures the correct information.
+
+## Embedding Geometry
+
+A universal finding across all experiments, and especially in the astronomy domain, is that out of all classification heads, the centroid classifier demonstrated by far the least competitive results. This is consistent with the extreme anisotropy observed in our analysis in Table $\ref{tab:full-geom}$, where model anisotropy is above 60%. As noted by @ethayarajh-2019-contextual, this suggests that TSFMs do not represent data as compact, spherical sets but rather collapse the data into a narrow cone.
+
+Within the highly stochastic financial domain, we see a wide range of geometric metrics. The financial specialist FinFast embeds the data in a low-dimensional, highly anisotropic space, while ECGFounder utilizes a high-dimensional space with extremely low anisotropy. This demonstrates the difficulty of modelling stochastic patterns.
+
+We can see that ECGFounder and Moirai consistently demonstrate lower anisotropy than other models, with higher intrinsic dimension. This suggests that these models utilize a more complex and non-linear geometry to construct embeddings, allowing the models to model a wider range of signals, leading to their positive transfer capabilities. Conversely, Astromer demonstrates lower intrinsic dimension and high anisotropy consistent with its low transferability. The custom features demonstrate that a low intrinsic dimension may not be fatal; in fact, when paired with low anisotropy, the custom features compete with all top models. 
+
+We propose that low anisotropy is a necessary condition for effective and adaptive representation learning, regardless of the dimensionality of the embedding.
+
+# Conclusion
+
+In this study, we have conducted a rigorous geometric audit of state-of-the-art Time Series Foundation Models (TSFMs) to evaluate their performance and their promise of zero-shot transferability. By evaluating the performance of different classifiers on the embeddings of models, general models Moirai, TimesFM, as well as specialized models Astromer, FinCast, ECGFounder, and Wav2Vec 2.0, against random and stochastic-based models, we arrive at three main conclusions.
+
+We find that the "universality" of current foundation models is conditional. TSFMs exhibit strong transferability in domains governed by deterministic laws (e.g., within the PTB-XL and ESC-50 datasets), where the signal is generally clean and periodic. However, in stochastic, high-entropy domains such as finance, these large models fail to generalize, performing similarly to random noise embeddings. This suggests that TSFMs tend to learn safe, low-dimensional embeddings rather than disentangling signal from noise.
+
+Secondly, our results challenge the assumption that simply pretraining on domain-specific data guarantees top performance. The finance specialist's FinCast embeddings were dominated by noise, as evidenced by their proximity to the random baseline. In contrast, ECGFounder generalized extremely well to the audio classification task. This suggests that the structure of the data may be a more important factor than the semantic label of the domain.
+
+Geometrically, we find that TSFM transferability is conditional on its geometric properties. We observe two distinct regimes for successful representation. Firstly, rich manifolds with high intrinsic dimension and low anisotropy, as exemplified by ECGFounder, manage to capture complex relationships in the data. The drawback of this regime is shown in its failure within the finance domain, where it likely utilized its adaptability to model noise. Secondly, we have low dimension and low anisotropy, as exemplified by the custom features most notably in Astronomy, which separates the data by extracting important factors. Crucially, failure is universally characterized by high anisotropy. This embeds the data into narrow cones, failing to capture the complexity of the data. 
+
+Finally, our study challenges the assumption that scale guarantees performance. In specialized tasks such as variable star classification, a custom model using stochastic features drastically outperformed the best foundation model. Despite the paradigm shift towards large-scale foundation models, light-weight, task-specific feature extractors remain highly competitive in high-entropy domains and should not be discarded in favor of expensive generalist architectures. Consequently, we argue that the proper direction for improvement in transferability lies not in increasing data volume or pre-training domain, but in developing pre-training objectives that balance dimensionality reduction and topological adaptability.
+
+# Limitations
+
+While our study provides evidence for domain-specific performance gaps in TSFMs, several methodological constraints should be considered when interpreting our findings. 
+
+Our custom features encode decades of domain expertise (e.g., RSI and MACD for finance, Lomb-Scargle periodograms for astronomy). However, these are not "privileged" baselines but rather represent the knowledge that domain specialists should have acquired during pre-training. 
+
+Furthermore, our study lacks systematic ablation experiments that would isolate the contribution of specific design choices. Key ablations not performed include embedding extraction strategies (mean vs max pooling, layer selection), input sequence length sensitivity, custom feature subset analysis, PCA dimensionality impact, classification head capacity scaling, or training regime variations. These missing ablations mean our results represent lower bounds on TSFM performance rather than performance ceilings, and that the true capabilities of each model might exceed our measurements.
+
+\newpage
+
+# References {.unnumbered}
+
+::: {#refs}
+:::
+
+\appendix
+
+\newpage
+
+# Dataset Descriptions {#sec-datasets}
+
 **PTB-XL** is a large publicly available electrocardiography dataset [@Wagner2020-ps], containing 21799 ECG 10 second readings using 12 leads from 18869 patients. The data has been expert annotated, conforming to the SCP-ECG standard. Included annotations are "NORM" (Normal ECG), "MI" (Myocardial Infarction), "STTC" (ST/T Change), "CD" (Conduction Disturbance), and "HYP" (Hypertrophy). Additionally, an "OTHER" annotation was added for observations that were not given an annotation. The ECG recordings were recorded at a frequency of 500 Hz and downsampled to 100Hz for processing purposes. 
+
+```{python}
+#| output: asis
+#| echo: false
+#| tbl-pos: 'H!'
+
+y_train = pd.read_parquet("../data/processed/ptb-xl/ptb-xl-y-train.parquet")
+y_test = pd.read_parquet("../data/processed/ptb-xl/ptb-xl-y-test.parquet")
+
+def get_label(x):
+    if len(x) > 0:
+        return x[0]
+    else:
+        return "OTHER"
+
+y_train = pd.Series([get_label(x) for x in y_train["diagnostic_superclass"]])
+y_test = pd.Series([get_label(x) for x in y_test["diagnostic_superclass"]])
+
+
+# Compute Counts and Percentages
+# Train
+train_counts = y_train.value_counts()
+train_pct = y_train.value_counts(normalize=True).sort_index() * 100
+
+# Test
+test_counts = y_test.value_counts().sort_index()
+test_pct = y_test.value_counts(normalize=True).sort_index() * 100
+
+# Combine into one DataFrame
+df_summary = pd.DataFrame(
+    {
+        "Train Count": train_counts,
+        "Train (pct)": train_pct,
+        "Test Count": test_counts,
+        "Test (pct)": test_pct,
+    }
+)
+
+# Fill NaNs with 0 (in case a class is missing from one split)
+df_summary = df_summary.fillna(0)
+
+# Convert counts to integers
+df_summary["Train Count"] = df_summary["Train Count"].astype(int)
+df_summary["Test Count"] = df_summary["Test Count"].astype(int)
+
+# Add a 'Total' row
+total_row = pd.DataFrame(
+    {
+        "Train Count": [df_summary["Train Count"].sum()],
+        "Train (pct)": [100.0],
+        "Test Count": [df_summary["Test Count"].sum()],
+        "Test (pct)": [100.0],
+    },
+    index=["Total"],
+)
+
+df_final = pd.concat([df_summary, total_row])
+
+latex_body = df_final.to_latex(
+    float_format="%.1f",
+    column_format="lrrrr", # Keeps text left-aligned, numbers right-aligned
+    escape=True
+)
+
+# Print Manual Wrapper with Centering
+print(r"\begin{table}[H]")
+print(r"\centering")  # <--- This fixes the page alignment
+print(r"\caption{Label distribution for PTB-XL.}")
+print(r"\label{tab:labels-ptb-xl}")
+print(latex_body)
+print(r"\end{table}")
+
+```
 
 **ESC-50** [@Piczak2015-be] is a dataset containing 2000 environmental audio recordings. The recordings are uniformly sampled at 44.1kHz with a fixed length of 5 seconds. Each recording is organized into one of 50 semantic classes, with 40 examples per class. The available classes can be categorized as animals, natural soundscapes, water sounds, human non-speech sounds, interior/domestic sounds, exterior/urban sounds [@Piczak2015-be]. The data is prearranged by the author into 5 folds for cross validation. We reserve one of these splits to be our testing dataset, using the remaining 4 splits as testing data. This ensuring balanced training and testing sets.
 
-The **S&P 500** (Standard and Poor's 500) is an index fund comprised of the 500 largest stocks. Our dataset is generated from the daily returns of each constituent stock of the index, from January 1st 2000 to November 1st, 2025. It has been sourced through the Yahoo Finance API [@YahooFinance_Data_2025] by usage of the yfinance python package [@aroussi2025yfinance]. To pre-process the data we adapt the methodology put forward in [@Krauss2017-sm]. We do so by creating windows of 500 days, reserving the first 349 days of the window for our training set and the last 150 days for our testing set. We have split the data in this manner to ensure there is no data leakage, adopting purging (no overlap between training and testing sets) and embargo (removing any observation directly following a training set) methods from [@de-prado-2018]. Financial literature suggests that forecasting based on classifying the direction of the return generally performs better than level estimation [@leung-1999]. To this end, we set the input variables of our models to be composed of the returns from sliding window of 80 days (approximately 3 trading months) with the output variable set as 1 or 0 if the following day's return is above or below the window's median return respectively.
+The **S&P 500** (Standard and Poor's 500) is an index fund comprised of the 500 largest stocks. Our dataset is generated from the daily returns of each constituent stock of the index, from January 1st 2000 to November 1st, 2025. It has been sourced through the Yahoo Finance API [@YahooFinance_Data_2025] by usage of the yfinance python package [@aroussi2025yfinance]. To pre-process the data we adapt the methodology put forward in [@Krauss2017-sm]. We do so by creating windows of 500 days, reserving the first 349 days of the window for our training set and the last 150 days for our testing set. We have split the data in this manner to ensure there is no data leakage, adopting purging (no overlap between training and testing sets) and embargo (removing any observation directly following a training set) methods from [@de-prado-2018]. Financial literature suggests that forecasting based on classifying the direction of the return generally performs better than level estimation [@leung-1999]. To this end, we set the input variables of our models to be composed of the returns from sliding window of 80 days ($t_{0}$ to $t_{79}$) with the output variable set as 1 or 0 if the following day's return (at $t_80$) is above or below the window's median return respectively. The median was calculated strictly on the input window $t_{0}$ to $t_{79}$​.
+
+```{python}
+#| output: asis
+#| echo: false
+#| tbl-pos: 'H!'
+
+y_train = pd.read_parquet("../data/processed/star/star-y-train.parquet")
+y_test = pd.read_parquet("../data/processed/star/star-y-test.parquet")
+
+y_train = pd.Series(y_train["Class"])
+y_test = pd.Series(y_test["Class"])
+
+# Compute Counts and Percentages
+# Train
+train_counts = y_train.value_counts()
+train_pct = y_train.value_counts(normalize=True).sort_index() * 100
+
+# Test
+test_counts = y_test.value_counts().sort_index()
+test_pct = y_test.value_counts(normalize=True).sort_index() * 100
+
+# Combine into one DataFrame
+df_summary = pd.DataFrame(
+    {
+        "Train Count": train_counts,
+        "Train (pct)": train_pct,
+        "Test Count": test_counts,
+        "Test (pct)": test_pct,
+    }
+)
+
+# Fill NaNs with 0 (in case a class is missing from one split)
+df_summary = df_summary.fillna(0)
+
+# Convert counts to integers
+df_summary["Train Count"] = df_summary["Train Count"].astype(int)
+df_summary["Test Count"] = df_summary["Test Count"].astype(int)
+
+# Add a 'Total' row
+total_row = pd.DataFrame(
+    {
+        "Train Count": [df_summary["Train Count"].sum()],
+        "Train (pct)": [100.0],
+        "Test Count": [df_summary["Test Count"].sum()],
+        "Test (pct)": [100.0],
+    },
+    index=["Total"],
+)
+
+df_final = pd.concat([df_summary, total_row])
+
+latex_body = df_final.to_latex(
+    float_format="%.1f",
+    column_format="lrrrr",
+    escape=True
+)
+
+# Print Manual Wrapper with Centering
+print(r"\begin{table}[H]")
+print(r"\centering")
+print(r"\caption{Label distribution for StarEmbed}")
+print(r"\label{tab:labels-star}")
+print(latex_body)
+print(r"\end{table}")
+
+```
 
 The **StarEmbed** dataset is a multi-band light curve dataset designed to benchmark astronomical and general TSFMs on astronomical time series data [@li2025starembedbenchmarkingtimeseries]. The dataset is composed of light curves selected from release 23 (DR23) of the ZTF astronomical survey [@Bellm2019-mh]. Star class labels have been expertly labelled in the Catalina Surveys Periodic Variable Star Catalog (CSPVS) [@Drake2014-ap].
 
@@ -60,312 +791,77 @@ The dataset is split into training, validation and testing datasets. Time series
 
 The stars were first pre-classified using multivariate kernel density estimation [@scott-1992], followed by a classification done by visual inspection to asses their final class [@Drake2014-ap]. In total, there are 6 different star classes present in the dataset:  "CVn", "EW", "EA", "LPV", "RRab", "RRc", "RRd", and "RS". All classes are present in approximately equal proportion in all three splits, however, some classes  have many fewer observations than others, for example, LPV and EW classes which contain 360 and 27075 observations respectively [@Drake2014-ap].
 
-
-# Models
-
-## General Models
-**Moirai** is a forecasting time series model designed to perform across domains [@woo2024unifiedtraininguniversaltime]. It utilizes multiple patch size projection layers, enabling it to treat data across temporal patterns and an Any-variate Attention mechanism, leveraging Rotary Position Embeddings allowing it to treat multivariate data seamlessly. Furthermore the model addresses the issue of probabilistic forecasting by employing a mixture of parametric distributions, leading to a model which can be evaluated using any metric.
-
-**TimesFM** is a model developed by Google Research [@das2024decoderonlyfoundationmodeltimeseries], employing a Decoder-Only paradigm. Drawing inspiration from Large Language Models, TimesFM follows the same strategy and treats prediction as a next-token prediction task. TimesFM processes non-overlapping patches of the series into tokens with a Multi-Layer Perceptron, using a Transformer architecture to autoregressively predict following patches. A distinguishing feature of TimesFM is the data used for its pretraining. It has been trained on a massive mixture of 100 billion time points, composed of both real-world data (Google Trends, Wikipedia Pageviews) and synthetic data, generated through statistical models and physical simulations.
-
-## Domain Specific Models
-
-While generalist models aim for universality, **Astromer** [@donoso-oliva-2022] demonstrates the power of domain-focused pre-training. It is a self-supervised, Transformer-based encoder-decoder designed specifically for astronomical light curve data, representing the brightness of celestial objects. ASTROMER has been developed to specifically handle the irregular sampling inherent to telescopic observation (e.g., gaps due to daylight or weather).
-
-**ECGFounder** [@li2025electrocardiogramfoundationmodelbuilt] is a large-scale encoder designed for electrocardiogram (ECG) analysis. Trained on a massive corpus of over 10 million 12-lead ECG recordings, it learns to identify 150 distinct cardiac abnormalities. ECGFounder employs a RegNet (ResNet-based) backbone optimized for capturing the precise morphological features of cardiac cycles (such as QRS complex width and ST-segment elevation). 
-
-**Wav2Vec 2.0** (W2V) [@baevski2020wav2vec20frameworkselfsupervised] is a model developed by Meta AI, employing a dual-stage architecture. It first employs a multi-layer Convolutional Neural Network (CNN) to process raw waveforms and extract latent feature representations, followed by a context network which uses the usual Transformer architecture. Wav2Vec 2.0's key contribution is a Contrastive Learning objective combined with Product Quantization. The model learns to predict from discretized "codebook" entries of masked temporal steps, effectively inventing its own latent glossary of acoustic units from raw audio. This architecture allows it to capture complex frequency-domain dependencies and local temporal structures inherent to sound.
-
-**Fincast** [@zhu2025fincastfoundationmodelfinancial] is a domain specific foundation model tailored for time series forecasting. It has been trained exclusively on large-scale financial data, encompassing diverse asset classes (equities, forex, commodities) and frequencies. The model uses input tokenization, followed by Causal Attention and sparse Mixture of Experts (MOE) blocks and a Decoder. FinCast aims to capture domain-specific latent dynamics like volatility clustering and regime changes that generic models may fail to prioritize.
-
-
-# Methodology
-
-We consider the single-label classification task over a dataset of time series. Let $\mathcal{D} = \{(\mathbf{y}_n, \ell_n)\}_{n=1}^N$ represent our dataset, where $\ell_n \in \mathcal{L}$ is the ground truth label from a discrete label set $\mathcal{L} = \{0, \dots, K-1\}$.
-
-Each input $\mathbf{y}$ is a (possibly multivariate) time series sequence denoted as $\mathbf{y} = \{y_t\}_{t=1}^{T}$, where $y_t \in \mathbb{R}^V$ represents the features at time step $t$, and $V$ is the number of variables.
-
-Our objective is to model the posterior probability of a label $\ell$ given the sequence $\mathbf{y}$ and a set of model parameters $\theta$. However, in our context the parameters $\theta$ are partitioned into two distinct sets:
-
-$$
-    \theta = \{ \phi, \psi \}
-$$
-
-where $\phi$ represents the frozen parameters of the pre-trained model (the backbone) and $\psi$ represents the trained parameters of the classification head.
-
-The classification process operates in two stages. First, the sequence $\mathbf{y}$ is mapped to a latent embedding vector $\mathbf{z} \in \mathbb{R}^d$ by the backbone function $f_{\phi}$:
-
-$$
-    \mathbf{z} = f_{\phi}(\mathbf{y})
-$$
-
-Here, $\mathbf{z}$ represents the aggregated information of the time series extracted from a pre-trained model. Since $\phi$ is frozen, this mapping is deterministic and fixed during our evaluation.
-
-Next, we estimate the conditional probability of the label given the embedding using the classification head $g_{\psi}$:
-
-$$
-    P(\ell \mid \theta, \mathbf{y}) \approx P(\ell \mid \psi, \mathbf{z}) = g_{\psi}(\ell, \mathbf{z})
-$$
-
-Finally, we predict the class label $\hat{\ell}$ by selecting the label that maximizes this posterior probability:
-
-$$
-    \hat{\ell} = \underset{\ell \in \mathcal{L}}{\text{argmax}} \ P(\ell \mid \psi, f_{\phi}(\mathbf{y}))
-$$
-
-## Classification Heads
-
-**Logistic regression** is one of the most common classification methods. It assumes that the sample space can by divided into class clusters through hyperplane segmentation. **Nearest centroid** classification also assumes clustering, however this method assumes classes are contained within balls, evaluate compactness and convexity of label sets. To evaluate local manifold topology, we employ a **k-Nearest Neighbors** (k-NN) probe (k=5, distance-weighted). Unlike linear probes which assume global separability, k-NN tests if semantic classes form varying local neighborhoods in the latent space. To evaluate non-linearity and high-complexity manifolds, we utilize a 2 layer, **multi-layer perceptron** (MLP) with hidden dimension 1024 (see Appendix A for formal definitions).
-
-
-
-## Evaluation Metrics
-
-To provide a comprehensive assesment of model performance, we report four standard metrics. While Accuracy (A) serves as a primary metric for comparison against baseline, we also report Precision (P), Recall (R), and the $F_1$ score (harmonic mean of Precision and Recall). In the case of binary classification (labels 0 or 1):
-$$
-A = \frac{TP+TN}{P + N},\quad P = \frac{TP}{TP + FP},\quad R = \frac{TP}{P},\quad F_1 = \frac{2 \times P \times R}{P + R}
-$$
-where $TP$ is the number of true positive, $TN$ is the number of true negatives, $P$ is the number of positives and $N$ is the number of negatives with positive corresponding to the label 1 and negative corresponding the label 0. In the case of multinomial prediction (more than 2 labels), we take Precision, Recall and $F_1$ score to be the weighted average of the metrics computed for each class.
-
-These alternative metrics allow for us to evaluate the performance of models in the presence of imbalanced classes and diagnose how classifications are being made.
-
-# Experiments and Results
-
-## Experiment Setup
-
-All experiments were conducted within a standardized benchmarking pipeline to ensure fair comparision. 
-
-**Preprocessing**. To prevent any information leakage, training and testing data were immediately split. Dimensionality reduction (PCA) and standardization were fitted only on the training split and applied to the testing split. Where appropriate, downsampling was applied, greatly reducing the size of the data files and increasing computational speed while retaining the same information.
-
-**Baselines**. We compare all pre-trained models against two basic controls. A custom embedding has been generated for each dataset, computing various statistical features in both time and frequency domain (see Appendix B for the list of features included).. These embeddings serve as a baseline for the other models, demonstrating the explainability of light-weight statistical methods compared to the much more computationally expensive and pre-trained models. We also include random embeddings which are constructed by generating 512 Uniform(0,1) random variables. This baseline establishes a "noise floor".
-
-## Financial Forecasting
-
-The S&P-500 constituents data serves as a binary classification problem. Stock return data is highly stochastic with low signal to noise ratio. The models must be able to detect and communicate the signal while taking into account the highly unpredictable nature of the returns.
-
 ```{python}
 #| output: asis
 #| echo: false
-#| tbl-pos: 'H'
+#| tbl-pos: 'H!'
 
-import pandas as pd
-import io
-import numpy as np
+y_train = pd.read_parquet("../data/processed/SP-500/SP-500-y-train.parquet")
+y_test = pd.read_parquet("../data/processed/SP-500/SP-500-y-test.parquet")
 
-def generate_table(df):
-  # 2. Configuration
-  # Map how columns appear in CSV to how they should appear in Table
-  classifiers_map = [
-      ('kNN', 'k-NN'),
-      ('LogReg', 'Logistic'),
-      ('Centroid', 'Centroid'),
-      ('MLP', 'MLP')
-  ]
-  metrics_map = [
-      ('Acc', 'Accuracy'),
-      ('Prec', 'Precision'),
-      ('Rec', 'Recall'),
-      ('F1', 'F1')
-  ]
+y_train = pd.Series(np.array(y_train).reshape(-1))
+y_test = pd.Series(np.array(y_test).reshape(-1))
 
-  # Get list of models (Embeddings) from the dataframe
-  models = df["Embedding"].tolist()
+# Compute Counts and Percentages
+# Train
+train_counts = y_train.value_counts()
+train_pct = y_train.value_counts(normalize=True).sort_index() * 100
 
-  # 3. Helper function to find best/second best
-  def get_formatted_row(classifier_code, metric_code):
-      row_values = []
-      
-      # First pass: collect all numerical values for this row to determine rank
-      for model in models:
-          model_row = df[df['Embedding'] == model].iloc[0]
-          
-          if classifier_code == 'MLP':
-              # For MLP, we compare based on the Mean
-              val = model_row[f'{classifier_code}_{metric_code}_Mean']
-          else:
-              val = model_row[f'{classifier_code}_{metric_code}']
-          row_values.append(val)
-      
-      # Find thresholds for best and second best
-      # We use a set to handle duplicates (if two models are tied for 1st)
-      unique_vals = sorted(list(set(row_values)), reverse=True)
-      best_val = unique_vals[0] if len(unique_vals) > 0 else -1
-      second_best_val = unique_vals[1] if len(unique_vals) > 1 else -1
+# Test
+test_counts = y_test.value_counts().sort_index()
+test_pct = y_test.value_counts(normalize=True).sort_index() * 100
 
-      # Second pass: Format strings
-      formatted_cells = []
-      for i, model in enumerate(models):
-          model_row = df[df['Embedding'] == model].iloc[0]
-          
-          # Extract value and optional standard deviation
-          if classifier_code == 'MLP':
-              val = model_row[f'{classifier_code}_{metric_code}_Mean']
-              std = model_row[f'{classifier_code}_{metric_code}_Std']
-              cell_str = f"{val:.3f} ({std:.3f})"
-          else:
-              val = model_row[f'{classifier_code}_{metric_code}']
-              cell_str = f"{val:.3f}"
-          
-          # Apply Styling
-          if val == best_val:
-              cell_str = f"\\textbf{{{cell_str}}}"
-          elif val == second_best_val:
-              cell_str = f"\\underline{{{cell_str}}}"
-              
-          formatted_cells.append(cell_str)
-          
-      return formatted_cells
+# Combine into one DataFrame
+df_summary = pd.DataFrame(
+    {
+        "Train Count": train_counts,
+        "Train (pct)": train_pct,
+        "Test Count": test_counts,
+        "Test (pct)": test_pct,
+    }
+)
 
-  # 4. Generate LaTeX
-  # Column setup: Classifier, Metric, then one col per model
-  num_cols = 2 + len(models)
-  col_setup = "ll" + "c" * len(models)
+# Fill NaNs with 0 (in case a class is missing from one split)
+df_summary = df_summary.fillna(0)
 
-  print(r"\begin{table}[h!]")
-  print(r"\centering")
-  print(r"\resizebox{\textwidth}{!}{")
-  print(f"\\begin{{tabular}}{{{col_setup}}}")
-  print(r"\toprule")
+# Convert counts to integers
+df_summary["Train Count"] = df_summary["Train Count"].astype(int)
+df_summary["Test Count"] = df_summary["Test Count"].astype(int)
 
-  # Header Row
-  header_models = " & ".join([f"\\textbf{{{m}}}" for m in models])
-  print(f"\\textbf{{Classifier}} & \\textbf{{Metric}} & {header_models} \\\\")
-  print(r"\midrule")
+# Add a 'Total' row
+total_row = pd.DataFrame(
+    {
+        "Train Count": [df_summary["Train Count"].sum()],
+        "Train (pct)": [100.0],
+        "Test Count": [df_summary["Test Count"].sum()],
+        "Test (pct)": [100.0],
+    },
+    index=["Total"],
+)
 
-  # Data Rows
-  for c_idx, (c_code, c_name) in enumerate(classifiers_map):
-      print(f"\\multirow{{4}}{{*}}{{{c_name}}}")
-      
-      for m_code, m_name in metrics_map:
-          cells = get_formatted_row(c_code, m_code)
-          row_content = " & ".join(cells)
-          print(f" & {m_name} & {row_content} \\\\")
-      
-      # Add midrule unless it's the last classifier
-      if c_idx < len(classifiers_map) - 1:
-          print(r"\midrule")
+df_final = pd.concat([df_summary, total_row])
 
-df = pd.read_csv("../data/results/results_SP-500.csv")
-generate_table(df)
-print(r"\bottomrule")
-print(r"\end{tabular}")
-print(r"}")
-print(r"\caption{Classification results for S\&P 500 dataset. Best results are \textbf{bold}, second best are \underline{underlined}.}")
-print(r"\label{tab:results}")
+latex_body = df_final.to_latex(
+    float_format="%.1f",
+    column_format="lrrrr",
+    escape=True
+)
+
+# Print Manual Wrapper with Centering
+print(r"\begin{table}[H]")
+print(r"\centering")
+print(r"\caption{Label distribution for S\&P 500 stocks}")
+print(r"\label{tab:labels-sp-500}")
+print(latex_body)
 print(r"\end{table}")
 ```
 
 
-Table 1 shows results for classification on the S&P 500 dataset. It shows that many models perform competitively, with Wav2Vec, Astro and Fincast all achieving above 52% accuracy with logistic regression, which was the threshold set by the random embedding baseline. We can also see that the custom embeddings largely outperform all models achieving up to 54.2% accuracy. We find that the logistic regression classifier generally performs better than others, as all models other than TimesFM achieved their highest accuracy using it.
+\newpage
 
+# Classification Heads {#sec-class-heads}
 
-## Heart Rhythm Classification
-
-The PTB-XL dataset serves as a multi-class classification problem. Unlike the financial task which requires detecting stochastic trends, this task serves as our benchmark for detecting periodic abnormalities. The classification heads must determine if the foundation model has preserved specific waveform information (such as P-wave onset or QRS width) required to distinguish between diagnostic classes like Myocardial Infarction and Hypertrophy.
-
-```{python}
-#| output: asis
-#| echo: false
-#| tbl-pos: 'H'
-
-df = pd.read_csv("../data/results/results_ptb-xl.csv")
-generate_table(df)
-print(r"\bottomrule")
-print(r"\end{tabular}")
-print(r"}")
-print(r"\caption{Classification results for PTB-XL dataset. Best results are \textbf{bold}, second best are \underline{underlined}.}")
-print(r"\label{tab:results}")
-print(r"\end{table}")
-```
-
-Table 2 shows results for classification on the PTB-XL dataset. For this data, ECGFounder, TimesFM and Moirai all achieved competitive results with upwards of 62% accuracy, up to 65.7% accuracy in the case of Moirai with the MLP head. The custom features failed to achieve high competitive with highest accuracy of 55.7%, rivaling the Astronomer model. Within this dataset both logistic regression and the MLP head achieved similar results, with the MLP perfoming slightly better.
-
-
-## Acoustic Classification
-
-The ESC-50 dataset benchmarks the ability for a model to understand frequency domain of our data. Due to the nature of audio recordings, the embeddings must implicitly capture spectral decomposition information, mapping waveforms to frequency signatures, to distinguish between acoustically similar classes (e.g., 'Rain' vs. 'Wind') without explicit Fourier transform preprocessing.
-
-```{python}
-#| output: asis
-#| echo: false
-#| tbl-pos: 'H'
-
-df = pd.read_csv("../data/results/results_esc-50.csv")
-generate_table(df)
-print(r"\bottomrule")
-print(r"\end{tabular}")
-print(r"}")
-print(r"\caption{Classification results for ESC-50 dataset. Best results are \textbf{bold}, second best are \underline{underlined}.}")
-print(r"\label{tab:results}")
-print(r"\end{table}")
-```
-
-Table 3 shows that ECGFounder achieved the highest accuracy by a large margin. Its highest accuracy is at 47.5% with the MLP head, whereas the second highest performing model is TimesFM, achieving only 37.5% accuracy with a logistic regression. Similarly to the PTB-XL data, both logistic regression and the MLP head achieved top results.
-
-## Light curve Classification
-
-To test a model's ability to encode deterministic physical laws, we utilize the StarEmbed dataset. Unlike the previous datasets, light curves are determined by strict astrophysical periodicity. The classification heads must determine if the embedding can capture the periodic nature of these lightcurves despite irregular sampling.
-
-```{python}
-#| output: asis
-#| echo: false
-#| tbl-pos: 'H'
-
-df = pd.read_csv("../data/results/results_star.csv")
-generate_table(df)
-print(r"\bottomrule")
-print(r"\end{tabular}")
-print(r"}")
-print(r"\caption{Classification results for StarEmbed dataset. Best results are \textbf{bold}, second best are \underline{underlined}.}")
-print(r"\label{tab:results}")
-print(r"\end{table}")
-```
-
-Table 4 demonstrates that all models achieved very similar results barely outperforming the random embeddings. Excluding the centroid head which performed poorly in all cases with a top accuracy of 13.3%, the highest accuracy was achieved by the Astromer model with a MLP head, obtaining 67.9% accuracy, with the lowest being 59% accuracy by ECGFounder with a MLP head. The custom embeddings far outperformed all pre-trained models achieving up to 90.3% accuracy.
-
-# Discussion
-
-## Model Performance
-
-Our results reveal a distinct dichotomy in the efficacy of Times Series Foundation Models. For Heart Rhythm classification Moirai and TimesFM demonstrated strong positive transfer achieving results competitive with the domain specialist ECGFounder. However within the light curve and stock classification tasks, they performed on par with the random noise embedding, demonstrating negative transfer when compared to the specialist models. Furthermore, the dominance of the Custom features in all but the Heart Rhythm domain challenges the "universal" applicability of pre-trained models.
-
-The results in Table 1 showing that TimesFM and Moirai failed to outperform the random embeddings shows a lack of generalizability and suggests that features learned during pretrained on period or clean data do not map to the highly volatile, chaotic dynamics of financial markets.
-
-In contrast, Table 2 demonstrates the clear utility of foundation models in domains determined by highly periodic data. Moirai, TimesFM and ECGFounder outperformed all other models by a significant margin. This result suggests that large-scale pretraining captures universal morphological features such as waveform periodicity and shape.
-
-Surprisingly ECGFounder, trained on heartbeat data, achieved the highest accuracy (47.5%) on the audio classification task, outperform the generalists TimesFM (37.0%) and Moirai (32.8%) as well as the specialist Wav2Vec (25.7%) This points to a successful transfer between domains. This may be due to the similarities in tasks, where both audio and heartbeats can be understood do to their frequency domain properties.
-
-In the astronomy domain, the Custom features drastically outperformed all other models, achieving 90.3% accuracy with the MLP. In comparison, the second best model was Astromer reaching only 67.9% accuracy. This 22% performance gap indicates that current embeddings fail to capture the high-precision phase information required to correctly distinguish star classes, whereas a statistical model succesfully captures the correct information.
-
-## Embedding Geometry
-
-A universal finding across all experiments, and espcially in the astronomy domain is that out of all classification heads, the centroid classifier demonstrated by far the least competitive results. This implies that TSFMs do not represent data as compact, spherical sets. For instance in the PTB-XL dataset we see a non linearity gap where the MLP outperformed logistic regression (e.g. with Moirai achieving +4%). This might indicate that the true classes lay on a complex non-linear manifold, which requires a non-linear model to decode. 
-
-Within the Astromer results we see succesfull results from the k-NN classifer, which models local topology, while the centroid classifier, which models global topology, performed poorly. This suggests that embeddings for a single class are spread across the feature space rather than clustered together. Thus a model with high variance and low bias (like k-NN with low k) will likely outperform a model with low variance and high bias (like centroid modelling).
-
-Conversely, on the S&P 500, PTB-XL and StarEmbed datasets the MLP offered no significant advantage over the linear model, suggesting a flatter geometry. In the case of the S&P 500 dataset, model performance stayed near the baseline results, demonstrating noisy embeddings and a lack of seperation between signal and noise. 
-
-# Conclusion
-
-In this study we have conducted a rigorous geometric audit of state-of-the-art Times Series Foundation Models (TSFMs) to evaluate their performance and their promise of zero-shot transferability. By evaluating the performance of different classifiers on the embeddings of models general models Moirai, TimesFM as well as specialized models Astromer, FinCast, ECGFounder and Wav2Vec 2.0, against random and stochastic based models we arrive at three main conclusions.
-
-We find that the "universality" of current foundation models is conditional. TSFMs exhibit strong transferability in domains governed by deterministic laws (e.g. within the PTB-XL and ESC-50 datasets), where the signal is generally clean and periodic. However, in stochastic, high entropy domains such as finance, these large models fail to generalize, performing similarly to random noise embeddings. This identifies a 'stochastic barrier,' suggesting that current pre-training objectives prioritize deterministic periodicity over the entropic dynamics found in financial or chaotic systems.
-
-Secondly, our results challenge the assumption that simply pretraining on domain specific data guarantees top performance. The finance specialist fincast embeddings were dominated by noise as evidence by their proximity to the random baseline. In contrast ECGFounder generalized extremely well to the audio classification task. This suggests that the structure of the data may be a more important factor than the semantic label of the domain.
-
-Geometrically, we find that TSFMs map data onto complex, non-linear manifolds that preserves within-class variance. This implies that linear classification heads often underestimate model quality in scientific domains, and these models would likely benefit from heavy weight classifying heads that may capture these non-linear relationships.
-
-Our study demonstrates that scale is not a substitute for signal. In specialized tasks such as variable star classification, a custom model using stochastic features drastically outperformed the best foundation model. Despite the paradigm shift towards large-scale foundation models, light-weight, task specific feature extractors remain highly competitive in high-entropy domains and should not be discarded in favor of expensive generalist architectures.
-
-
-# References 
-
-::: {#refs}
-:::
-
-# Appendix A
-
-## Logistic Regression
+## Logistic regression
 
 Logistic regression defines $\psi = \{ \beta, \mathbf{b} \}$ where the probability is modeled via the softmax function:
 
@@ -408,7 +904,9 @@ $$
 P(\ell = k \mid \mathbf{z}) = \frac{\exp([\mathbf{W}_2 \mathbf{h} + \mathbf{b}_2]_k)}{\sum_{j \in \mathcal{L}} \exp([\mathbf{W}_2 \mathbf{h} + \mathbf{b}_2]_j)}
 $$
 
-# Appendix B 
+\newpage
+
+# Extracted Features {#sec-extracted-features}
 
 \begin{longtable}{@{}p{2.5cm} p{4.5cm} >{\RaggedRight\arraybackslash}p{8cm}@{}}
 \caption{Detailed Description of Extracted Features} \label{tab:feature_descriptions} \\
@@ -512,3 +1010,262 @@ Texture & Spectral Contrast & Difference between peaks and valleys in the spectr
  & Flux Percentile Ratios & Ratios of flux percentiles (e.g., $F_{60}/F_{40}$) defining the shape of the folded curve. \\
 
 \end{longtable}
+
+\newpage
+
+# Results {#sec-full-results}
+
+## Financial Forecasting
+
+The S&P-500 constituents data serves as a binary classification problem. Stock return data is highly stochastic with low signal to noise ratio. The models must be able to detect and communicate the signal while taking into account the highly unpredictable nature of the returns.
+
+```{python}
+#| output: asis
+#| echo: false
+#| tbl-pos: 'H!'
+
+def generate_table(df):
+  # Map how columns appear in CSV to how they should appear in Table
+  classifiers_map = [
+      ('kNN', 'k-NN'),
+      ('LogReg', 'Logistic'),
+      ('Centroid', 'Centroid'),
+      ('MLP', 'MLP')
+  ]
+  metrics_map = [
+      ('Acc', 'Accuracy'),
+      ('Prec', 'Precision'),
+      ('Rec', 'Recall'),
+      ('F1', 'F1')
+  ]
+
+  # Get list of models (Embeddings) from the dataframe
+  models = df["Embedding"].tolist()
+
+  # Helper function to find best/second best
+  def get_formatted_row(classifier_code, metric_code):
+      row_values = []
+      
+      # First pass: collect all numerical values for this row to determine rank
+      for model in models:
+          model_row = df[df['Embedding'] == model].iloc[0]
+          
+          if classifier_code == 'MLP':
+              # For MLP, we compare based on the Mean
+              val = model_row[f'{classifier_code}_{metric_code}_Mean']
+          else:
+              val = model_row[f'{classifier_code}_{metric_code}']
+          row_values.append(val)
+      
+      # Find thresholds for best and second best
+      # We use a set to handle duplicates (if two models are tied for 1st)
+      unique_vals = sorted(list(set(row_values)), reverse=True)
+      best_val = unique_vals[0] if len(unique_vals) > 0 else -1
+      second_best_val = unique_vals[1] if len(unique_vals) > 1 else -1
+
+      # Second pass: Format strings
+      formatted_cells = []
+      for i, model in enumerate(models):
+          model_row = df[df['Embedding'] == model].iloc[0]
+          
+          # Extract value and optional standard deviation
+          if classifier_code == 'MLP':
+              val = model_row[f'{classifier_code}_{metric_code}_Mean']
+              std = model_row[f'{classifier_code}_{metric_code}_Std']
+              cell_str = f"{val:.3f} ({std:.3f})"
+          else:
+              val = model_row[f'{classifier_code}_{metric_code}']
+              cell_str = f"{val:.3f}"
+          
+          # Apply Styling
+          if val == best_val:
+              cell_str = f"\\textbf{{{cell_str}}}"
+          elif val == second_best_val:
+              cell_str = f"\\underline{{{cell_str}}}"
+              
+          formatted_cells.append(cell_str)
+          
+      return formatted_cells
+
+  # Generate LaTeX
+  # Column setup: Classifier, Metric, then one col per model
+  num_cols = 2 + len(models)
+  col_setup = "ll" + "c" * len(models)
+
+  print(r"\begin{table}[h!]")
+  print(r"\centering")
+  print(r"\resizebox{\textwidth}{!}{")
+  print(f"\\begin{{tabular}}{{{col_setup}}}")
+  print(r"\toprule")
+
+  # Header Row
+  header_models = " & ".join([f"\\textbf{{{m}}}" for m in models])
+  print(f"\\textbf{{Classifier}} & \\textbf{{Metric}} & {header_models} \\\\")
+  print(r"\midrule")
+
+  # Data Rows
+  for c_idx, (c_code, c_name) in enumerate(classifiers_map):
+      print(f"\\multirow{{4}}{{*}}{{{c_name}}}")
+      
+      for m_code, m_name in metrics_map:
+          cells = get_formatted_row(c_code, m_code)
+          row_content = " & ".join(cells)
+          print(f" & {m_name} & {row_content} \\\\")
+      
+      # Add midrule unless it's the last classifier
+      if c_idx < len(classifiers_map) - 1:
+          print(r"\midrule")
+
+df = pd.read_csv("../data/results/results_SP-500.csv")
+generate_table(df)
+print(r"\bottomrule")
+print(r"\end{tabular}")
+print(r"}")
+print(r"\caption{Classification results for S\&P 500 dataset. Best results are \textbf{bold}, second best are \underline{underlined}. The MLP are run with 3 seeds (0, 1, 2) and results are reported as Mean (Standard Deviation).}")
+print(r"\label{tab:results-sp-500}")
+print(r"\end{table}")
+```
+
+## Heart Rhythm Classification
+
+The PTB-XL dataset serves as a multi-class classification problem. Unlike the financial task which requires detecting stochastic trends, this task serves as our benchmark for detecting periodic abnormalities. The classification heads must determine if the foundation model has preserved specific waveform information (such as P-wave onset or QRS width) required to distinguish between diagnostic classes like Myocardial Infarction and Hypertrophy.
+
+```{python}
+#| output: asis
+#| echo: false
+#| tbl-pos: 'H!'
+
+df = pd.read_csv("../data/results/results_ptb-xl.csv")
+generate_table(df)
+print(r"\bottomrule")
+print(r"\end{tabular}")
+print(r"}")
+print(r"\caption{Classification results for PTB-XL dataset. Best results are \textbf{bold}, second best are \underline{underlined}. The MLP are run with 3 seeds (0, 1, 2) and results are reported as Mean (Standard Deviation).}")
+print(r"\label{tab:results-ptb-xl}")
+print(r"\end{table}")
+```
+
+
+## Acoustic Classification
+
+The ESC-50 dataset benchmarks the ability for a model to understand frequency domain of our data. Due to the nature of audio recordings, the embeddings must implicitly capture spectral decomposition information, mapping waveforms to frequency signatures, to distinguish between acoustically similar classes (e.g., 'Rain' vs. 'Wind') without explicit Fourier transform preprocessing.
+
+```{python}
+#| output: asis
+#| echo: false
+#| tbl-pos: 'H!'
+
+df = pd.read_csv("../data/results/results_esc-50.csv")
+generate_table(df)
+print(r"\bottomrule")
+print(r"\end{tabular}")
+print(r"}")
+print(r"\caption{Classification results for ESC-50 dataset. Best results are \textbf{bold}, second best are \underline{underlined}. The MLP are run with 3 seeds (0, 1, 2) and results are reported as Mean (Standard Deviation).}")
+print(r"\label{tab:results-esc-50}")
+print(r"\end{table}")
+```
+
+## Light curve Classification
+
+To test a model's ability to encode deterministic physical laws, we utilize the StarEmbed dataset. Unlike the previous datasets, light curves are determined by strict astrophysical periodicity. The classification heads must determine if the embedding can capture the periodic nature of these lightcurves despite irregular sampling.
+
+```{python}
+#| output: asis
+#| echo: false
+#| tbl-pos: 'H!'
+
+df = pd.read_csv("../data/results/results_star.csv")
+generate_table(df)
+print(r"\bottomrule")
+print(r"\end{tabular}")
+print(r"}")
+print(r"\caption{Classification results for StarEmbed dataset. Best results are \textbf{bold}, second best are \underline{underlined}. The MLP are run with 3 seeds (0, 1, 2) and results are reported as Mean (Standard Deviation).}")
+print(r"\label{tab:results-star}")
+print(r"\end{table}")
+```
+
+
+## Full Geometric Analysis {#sec-full-geom}
+```{python}
+#| echo: false
+#| output: asis
+#| 
+df = pd.read_csv("paper_files/geometric_audit_results.csv")
+
+# 1. Configuration
+domain_order = ['SP-500', 'star', 'ptb-xl', 'esc-50']
+
+pretty_domain_map = {
+    'SP-500': 'Finance (S\\&P 500)',
+    'star': 'Astronomy (Star)',
+    'ptb-xl': 'Medical (PTB-XL)',
+    'esc-50': 'Audio (ESC-50)'
+}
+
+print(r"\begin{table*}[h]") 
+print(r"\centering")
+print(r"\caption{\textbf{Full Geometric Analysis Results.} Detailed topological metrics for all evaluated models across four domains.}")
+print(r"\label{app:full_geo_results}")
+print(r"\resizebox{\textwidth}{!}{%")
+print(r"\begin{tabular}{llccc}") 
+print(r"\toprule")
+print(r"\textbf{Domain} & \textbf{Model} & \textbf{Embed Size} & \textbf{Intrinsic Dim} & \textbf{Anisotropy}\\")
+print(r"\midrule")
+
+existing_domains = [d for d in domain_order if d in df['Dataset'].unique()]
+
+for i, domain in enumerate(existing_domains):
+    domain_df = df[df['Dataset'] == domain].copy()
+    
+    # Identify Random Baseline for this domain to calculate ratios
+    random_row = domain_df[domain_df['Model'].str.contains('RANDOM', case=False)]
+    if random_row.empty:
+        random_id = 1.0
+    else:
+        random_id = random_row.iloc[0]['Intrinsic_Dim']
+
+    # Sort: Random first, then alphabetical
+    domain_df['is_random'] = domain_df['Model'].str.contains('RANDOM', case=False)
+    domain_df = domain_df.sort_values(by=['is_random', 'Model'], ascending=[False, True])
+
+    pretty_domain = pretty_domain_map.get(domain, domain)
+    
+    # Print rows for this domain
+    first_row = True
+    for _, row in domain_df.iterrows():
+        # Escape LaTeX special chars in model names
+        model_name = row['Model'].replace("_", "\\_").replace("&", "\\&")
+        
+        # Clean up redundant suffixes (e.g. 'FinCast-SP' -> 'FinCast')
+        if "-" in model_name and not "RANDOM" in model_name:
+                model_name = model_name.split("-")[0]
+        
+        if "RANDOM" in model_name.upper():
+            model_name = "Random Baseline"
+            collapse = "--"
+        else:
+            ratio = (1 - (row['Intrinsic_Dim'] / random_id)) * 100
+            collapse = f"{ratio:.1f}\%"
+
+        # Formatting
+        size_val = int(row['Embedding_Size'])
+        id_str = f"{row['Intrinsic_Dim']:.1f}"
+        ani_str = f"{row['Anisotropy']:.3f}"
+
+        # Print the row
+        if first_row:
+            print(f"\\multirow{{{len(domain_df)}}}{{*}}{{\\textbf{{{pretty_domain}}}}} & {model_name} & {size_val} & {id_str} & {ani_str} \\\\")
+            first_row = False
+        else:
+            print(f" & {model_name} & {size_val} & {id_str} & {ani_str}\\\\")
+    
+    # Add separator between domains (but not after the last one)
+    if i < len(existing_domains) - 1:
+        print(r"\midrule")
+
+print(r"\bottomrule")
+print(r"\end{tabular}%")
+print(r"\label{tab:full-geom}")
+print(r"}")
+print(r"\end{table*}")
+```
