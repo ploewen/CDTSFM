@@ -30,7 +30,7 @@ format:
     tbl-pos: 'H!'  # Force all tables to stay put
     fig-pos: 'H'  # Force all figures to stay put
 bibliography: references.bib
-abstract: "The emergence of Time Series Foundation Models (TSFMs) promises a shift toward universal, zero-shot forecasting capabilities. However, their effectiveness across diverse domains remains an open question. In this study, we conduct a geometric audit of six TSFMs (TIMESFM, MOIRAI, Wav2Vec 2.0, ECGFounder, Astromer, FinCast) across four distinct domains: Finance (S&P 500 stocks), Healthcare (PTB-XL), Audio (ESC-50), and Astronomy (StarEmbed). By deploying a multi-head classification suite, ranging from logistic regression to multi-layer perceptrons, we benchmark these large-scale models against random embeddings and lightweight, domain-specific features. We find that TSFMs demonstrate strong positive transfer in deterministic, physical domains, yet fail to significantly outperform random noise in high-entropy financial environments. Furthermore, we observe that domain-specific foundation models do not consistently outperform generalist architectures. Notably, lightweight custom feature extractors frequently rival or outperform massive pre-trained models, achieving 90.3% accuracy in astronomy tasks where TSFMs capped at 67.9%, challenging the assumption that scale is the only path to performance. We conclude that current pre-training objectives successfully encode morphological and periodic laws but struggle to disentangle stochastic signal from noise, necessitating a re-evaluation of zero-shot transfer in non-stationary domains."
+abstract: "The emergence of Time Series Foundation Models (TSFMs) promises a shift toward universal, zero-shot forecasting capabilities. However, their effectiveness across diverse domains remains an open question. In this study, we conduct a geometric audit of six TSFMs (TimesFM, Moirai, Wav2Vec 2.0, ECGFounder, Astromer, FinCast) across four distinct domains: Finance (S&P 500 stocks), Healthcare (PTB-XL), Audio (ESC-50), and Astronomy (StarEmbed). By deploying a multi-head classification suite, ranging from logistic regression to multi-layer perceptrons, we benchmark these large-scale models against random embeddings and lightweight, domain-specific features. We find that TSFMs demonstrate strong positive transfer in deterministic, physical domains, yet fail to significantly outperform random noise in high-entropy financial environments. Furthermore, we observe that domain-specific foundation models do not consistently outperform generalist architectures. Notably, lightweight custom feature extractors frequently rival or outperform massive pre-trained models, achieving 90.3% accuracy in astronomy tasks where TSFMs capped at 67.9%, challenging the assumption that scale is the only path to performance. We conclude that current pre-training objectives successfully encode morphological and periodic laws but struggle to disentangle stochastic signal from noise, necessitating a re-evaluation of zero-shot transfer in non-stationary domains."
 thanks: "Code and data are available at: <https://github.com/ploewen/CDTSFM>."
 nocite: |
   @wagner-2020, @Goldberger2000-pr
@@ -46,7 +46,7 @@ A key test of foundation model quality is whether pre-training on domain data pr
 
 # Data
 
-We consider 4 datasets spanning the audio, astronomical, finance, and medical domains. Specifically, we utilize the **PTB-XL** [@Wagner2020-ps] dataset for electrocardiography (ECG), **ESC-50** [@Piczak2015-be] for environmental audio classfication, daily stock returns from **S&P 500 constituents**, and **StarEmbed** [@li2025starembedbenchmarkingtimeseries] for astronomical light curve classification. This multi-domain approach allows us to test TSFM embeddings against various signal types, with each dataset posing a distinct challenge.
+We consider 4 datasets spanning the audio, astronomical, finance, and medical domains. Specifically, we utilize the **PTB-XL** [@Wagner2020-ps] dataset for electrocardiography (ECG), **ESC-50** [@Piczak2015-be] for environmental audio classification, daily stock returns from **S&P 500 constituents**, and **StarEmbed** [@li2025starembedbenchmarkingtimeseries] for astronomical light curve classification. This multi-domain approach allows us to test TSFM embeddings against various signal types, with each dataset posing a distinct challenge.
 
 We provide data examples in @fig-data-examples and summarize the descriptive statistics and downstream tasks for each dataset in @tbl-datasets. Comprehensive descriptions of the datasets, including preprocessing steps and label distributions, are provided in [Appendix -@sec-datasets].
 
@@ -147,7 +147,8 @@ Markdown(tabulate(
   table, 
   headers=["Dataset","Challenge", "Number of classes", "Series length", "Sample size"],
   tablefmt="grid",
-  maxcolwidths=[None, 30, None, None, None]
+  colalign=("left", "left", "left", "left", "left"),
+  maxcolwidths=[None, 35, None, None, None]
 ))
 ```
 
@@ -173,9 +174,9 @@ While generalist models aim for universality, **Astromer** [@donoso-oliva-2022] 
 
 # Methodology
 
-To evaluate the instrinsic geometry of TSFM representations, we adopt a fixed-feature extraction protocol. For each input series $\mathbf{y}$, we compute a latent embedding $\mathbf{z} = f_\phi(\mathbf{y})$ using pre-trained model parameters $\phi$. Crucially, $\phi$ remains frozen throughout our experiments to prevent task-specific adaptation. We then train a set of lightweight classification heads $g_\psi(\mathbf{z})$ to map these embeddings to target labels. This decoupling allows us to isolate the quality of the zero-shot embeddings from the capacity to learn new features. In the case of the StarEmbed dataset, which contains two variates, the embeddings generated for each band are concatenated following @auer2025pretrainedforecastingmodelsstrong. 
+To evaluate the intrinsic geometry of TSFM representations, we adopt a fixed-feature extraction protocol. For each input series $\mathbf{y}$, we compute a latent embedding $\mathbf{z} = f_\phi(\mathbf{y})$ using pre-trained model parameters $\phi$. Crucially, $\phi$ remains frozen throughout our experiments to prevent task-specific adaptation. We then train a set of lightweight classification heads $g_\psi(\mathbf{z})$ to map these embeddings to target labels. This decoupling allows us to isolate the quality of the zero-shot embeddings from the capacity to learn new features. In the case of the StarEmbed dataset, which contains two variates, the embeddings generated for each band are concatenated following @auer2025pretrainedforecastingmodelsstrong. 
 
-Our classification heads consist of **logistic regression** to test for linearly seperable manifolds, **nearest centroid** for spherical clusters, **k-nearest neighbours** (with k=5 and distance weighted classification) for non-linear local neighbourhoods, and a **multi-layer perceptron** (with one hidden layer of dimension 1024) for complex non-linear relationships (see [Appendix -@sec-class-heads] for formal definitions).
+Our classification heads consist of **logistic regression** to test for linearly separable manifolds, **nearest centroid** for spherical clusters, **k-nearest neighbours** (with k=5 and distance weighted classification) for non-linear local neighbourhoods, and a **multi-layer perceptron** (with one hidden layer of dimension 1024) for complex non-linear relationships (see [Appendix -@sec-class-heads] for formal definitions).
 
 To assess model performance, we report four standard metrics: Accuracy, Precision, Recall, and $F_1$ score. While Accuracy serves as a primary metric for comparisons, the other metrics allow us to account for imbalanced classes. In the case of multinomial prediction, we take Precision, Recall and, $F_1$ score to be the weighted average of the same metrics computed in a binary setting for each class.
 
@@ -479,7 +480,7 @@ print(r"\end{table}")
 
 Table $\ref{tab:dimensionality}$ presents a partial geometric analysis of the embedding spaces (the full analysis for all data-model combinations can be found in Appendix -@sec-full-geom). We computed the intrinsic dimension and anisotropy (average cosine similarity) to evaluate the topological structure of the learned representations.
 
-The random baseline for all datasets exhibits high intrinsic dimension (122.5-159.9) and moderate anisotropy ($\approx$ 75%). While ECGFounder maintained a moderately high intrinsic dimension, explaining its success in heartwave classification, other specialists underwent severe manifold collapse. Most notably in the financial domain, despite the high-entrop baseline (with ID 159.9), all other models were severely compressed (collapse ratio 91.2%-97.5%).
+The random baseline for all datasets exhibits high intrinsic dimension (122.5-159.9) and moderate anisotropy ($\approx$ 75%). While ECGFounder maintained a moderately high intrinsic dimension, explaining its success in heart rhytm classification, other specialists underwent severe manifold collapse. Most notably in the financial domain, despite the high-entropy baseline (with ID 159.9), all other models were severely compressed (collapse ratio 91.2%-97.5%).
 
 ```{python}
 #| echo: false
@@ -587,13 +588,13 @@ print(r"\end{table}")
 
 ## Model Performance
 
-Our results reveal a distinct dichotomy in the efficacy of TSFMs. For Heart Rhythm classification Moirai and TimesFM demonstrated strong positive transfer achieving results competitive with the domain specialist ECGFounder. However, within the light curve and stock classification tasks, they performed on par with the random noise embedding, demonstrating negative transfer when compared to the specialist models. Furthermore, the dominance of the Custom features in all but the Heart Rhythm domain challenges the "universal" applicability of pre-trained models.
+Our results reveal a distinct dichotomy in the efficacy of TSFMs. For heart rhythm classification, Moirai and TimesFM demonstrated strong positive transfer achieving results competitive with the domain specialist ECGFounder. However, within the light curve and stock classification tasks, they performed on par with the random noise embedding, demonstrating negative transfer when compared to the specialist models. Furthermore, the dominance of the Custom features in all but the Heart Rhythm domain challenges the "universal" applicability of pre-trained models.
 
 The results in Table 1 show that TimesFM and Moirai failed to outperform the random embeddings, showing a lack of generalizability and suggesting that features learned during pretraining on a period or clean data do not map to the highly volatile, chaotic dynamics of financial markets.
 
 In contrast, Table 2 demonstrates the clear utility of foundation models in domains determined by highly periodic data. Moirai, TimesFM, and ECGFounder outperformed all other models by a significant margin. This result suggests that large-scale pretraining captures universal morphological features such as waveform periodicity and shape.
 
-Surprisingly, ECGFounder, trained on heartbeat data, achieved the highest accuracy (47.5%) on the audio classification task, outperforming the generalists TimesFM (37.0%) and Moirai (32.8%) as well as the specialist Wav2Vec (25.7%). This points to a successful transfer between domains. This may be due to the similarities in tasks, where both audio and heartbeats can be understood do to their frequency domain properties.
+Surprisingly, ECGFounder, trained on heartbeat data, achieved the highest accuracy (47.5%) on the audio classification task, outperforming the generalists TimesFM (37.0%) and Moirai (32.8%) as well as the specialist Wav2Vec (25.7%). This points to a successful transfer between domains. This may be due to the similarities in tasks, where both audio and heartbeats can be understood due to their frequency domain properties.
 
 In the astronomy domain, the Custom features drastically outperformed all other models, achieving 90.3% accuracy with the MLP. In comparison, the second-best model was Astromer reaching only 67.9% accuracy. This 22% performance gap indicates that current embeddings fail to capture the high-precision phase information required to correctly distinguish star classes, whereas a statistical model successfully captures the correct information.
 
@@ -601,7 +602,7 @@ In the astronomy domain, the Custom features drastically outperformed all other 
 
 A universal finding across all experiments, and especially in the astronomy domain, is that out of all classification heads, the centroid classifier demonstrated by far the least competitive results. This is consistent with the extreme anisotropy observed in our analysis in Table $\ref{tab:full-geom}$, where model anisotropy is above 60%. As noted by @ethayarajh-2019-contextual, this suggests that TSFMs do not represent data as compact, spherical sets but rather collapse the data into a narrow cone.
 
-Within the highly stochastic financial domain, we see a wide range of geometric metrics. The financial specialist FinFast embeds the data in a low-dimensional, highly anisotropic space, while ECGFounder utilizes a high-dimensional space with extremely low anisotropy. This demonstrates the difficulty of modelling stochastic patterns.
+Within the highly stochastic financial domain, we see a wide range of geometric metrics. The financial specialist FinCast embeds the data in a low-dimensional, highly anisotropic space, while ECGFounder utilizes a high-dimensional space with extremely low anisotropy. This demonstrates the difficulty of modelling stochastic patterns.
 
 We can see that ECGFounder and Moirai consistently demonstrate lower anisotropy than other models, with higher intrinsic dimension. This suggests that these models utilize a more complex and non-linear geometry to construct embeddings, allowing the models to model a wider range of signals, leading to their positive transfer capabilities. Conversely, Astromer demonstrates lower intrinsic dimension and high anisotropy consistent with its low transferability. The custom features demonstrate that a low intrinsic dimension may not be fatal; in fact, when paired with low anisotropy, the custom features compete with all top models. 
 
@@ -715,9 +716,9 @@ print(r"\end{table}")
 
 ```
 
-**ESC-50** [@Piczak2015-be] is a dataset containing 2000 environmental audio recordings. The recordings are uniformly sampled at 44.1kHz with a fixed length of 5 seconds. Each recording is organized into one of 50 semantic classes, with 40 examples per class. The available classes can be categorized as animals, natural soundscapes, water sounds, human non-speech sounds, interior/domestic sounds, exterior/urban sounds [@Piczak2015-be]. The data is prearranged by the author into 5 folds for cross validation. We reserve one of these splits to be our testing dataset, using the remaining 4 splits as testing data. This ensuring balanced training and testing sets.
+**ESC-50** [@Piczak2015-be] is a dataset containing 2000 environmental audio recordings. The recordings are uniformly sampled at 44.1kHz with a fixed length of 5 seconds. Each recording is organized into one of 50 semantic classes, with 40 examples per class. The available classes can be categorized as animals, natural soundscapes, water sounds, human non-speech sounds, interior/domestic sounds, exterior/urban sounds [@Piczak2015-be]. The data is prearranged by the author into 5 folds for cross validation. We reserve one of these splits to be our testing dataset, using the remaining 4 splits as testing data. This ensures balanced training and testing sets.
 
-The **S&P 500** (Standard and Poor's 500) is an index fund comprised of the 500 largest stocks. Our dataset is generated from the daily returns of each constituent stock of the index, from January 1st 2000 to November 1st, 2025. It has been sourced through the Yahoo Finance API [@YahooFinance_Data_2025] by usage of the yfinance python package [@aroussi2025yfinance]. To pre-process the data we adapt the methodology put forward in [@Krauss2017-sm]. We do so by creating windows of 500 days, reserving the first 349 days of the window for our training set and the last 150 days for our testing set. We have split the data in this manner to ensure there is no data leakage, adopting purging (no overlap between training and testing sets) and embargo (removing any observation directly following a training set) methods from [@de-prado-2018]. Financial literature suggests that forecasting based on classifying the direction of the return generally performs better than level estimation [@leung-1999]. To this end, we set the input variables of our models to be composed of the returns from sliding window of 80 days ($t_{0}$ to $t_{79}$) with the output variable set as 1 or 0 if the following day's return (at $t_80$) is above or below the window's median return respectively. The median was calculated strictly on the input window $t_{0}$ to $t_{79}$​.
+The **S&P 500** (Standard and Poor's 500) is an index fund comprised of the 500 largest stocks. Our dataset is generated from the daily returns of each constituent stock of the index, from January 1st 2000 to November 1st, 2025. It has been sourced through the Yahoo Finance API [@YahooFinance_Data_2025] by usage of the yfinance Python package [@aroussi2025yfinance]. To pre-process the data we adapt the methodology put forward in [@Krauss2017-sm]. We do so by creating windows of 500 days, reserving the first 349 days of the window for our training set and the last 150 days for our testing set. We have split the data in this manner to ensure there is no data leakage, adopting purging (no overlap between training and testing sets) and embargo (removing any observation directly following a training set) methods from [@de-prado-2018]. Financial literature suggests that forecasting based on classifying the direction of the return generally performs better than level estimation [@leung-1999]. To this end, we set the input variables of our models to be composed of the returns from sliding window of 80 days ($t_{0}$ to $t_{79}$) with the output variable set as 1 or 0 if the following day's return (at $t_{80}$) is above or below the window's median return respectively. The median was calculated strictly on the input window $t_{0}$ to $t_{79}$​.
 
 ```{python}
 #| output: asis
@@ -785,11 +786,11 @@ print(r"\end{table}")
 
 ```
 
-The **StarEmbed** dataset is a multi-band light curve dataset designed to benchmark astronomical and general TSFMs on astronomical time series data [@li2025starembedbenchmarkingtimeseries]. The dataset is composed of light curves selected from release 23 (DR23) of the ZTF astronomical survey [@Bellm2019-mh]. Star class labels have been expertly labelled in the Catalina Surveys Periodic Variable Star Catalog (CSPVS) [@Drake2014-ap].
+The **StarEmbed** dataset is a multi-band light curve dataset designed to benchmark astronomical and general TSFMs on astronomical time series data [@li2025starembedbenchmarkingtimeseries]. The dataset is composed of light curves selected from release 23 (DR23) of the ZTF astronomical survey [@Bellm_2019]. Star class labels have been expertly labelled in the Catalina Surveys Periodic Variable Star Catalog (CSPVS) [@Drake_2014].
 
 The dataset is split into training, validation and testing datasets. Time series for green and red light curves are given, along with time stamps formatted in Modified Julian Dates (MJD), and a string identifying the class of the star. Several other variables are included but will not be used for our analysis. 
 
-The stars were first pre-classified using multivariate kernel density estimation [@scott-1992], followed by a classification done by visual inspection to asses their final class [@Drake2014-ap]. In total, there are 6 different star classes present in the dataset:  "CVn", "EW", "EA", "LPV", "RRab", "RRc", "RRd", and "RS". All classes are present in approximately equal proportion in all three splits, however, some classes  have many fewer observations than others, for example, LPV and EW classes which contain 360 and 27075 observations respectively [@Drake2014-ap].
+The stars were first pre-classified using multivariate kernel density estimation [@scott-1992], followed by a classification done by visual inspection to assess their final class [@Drake_2014]. In total, there are 6 different star classes present in the dataset:  "CVn", "EW", "EA", "LPV", "RRab", "RRc", "RRd", and "RS". All classes are present in approximately equal proportion in all three splits, however, some classes  have many fewer observations than others, for example, LPV and EW classes which contain 360 and 27075 observations respectively [@Drake_2014].
 
 ```{python}
 #| output: asis
@@ -899,7 +900,7 @@ $$
 \mathbf{o} = \mathbf{W}_2 \mathbf{h} + \mathbf{b}_2.
 $$
 
-From this logit vector the posterior probability are obtained from a softmax activation:
+From this logit vector the posterior probabilities are obtained from a softmax activation:  
 $$
 P(\ell = k \mid \mathbf{z}) = \frac{\exp([\mathbf{W}_2 \mathbf{h} + \mathbf{b}_2]_k)}{\sum_{j \in \mathcal{L}} \exp([\mathbf{W}_2 \mathbf{h} + \mathbf{b}_2]_j)}
 $$
@@ -965,10 +966,10 @@ Volatility & Bollinger Band Width & Difference between the Upper and Lower Bolli
 Growth & Simple Return & The percentage change from the first to the last point in the window. \\
 
 % ---------------------------------------------------------
-% PHYSIOLOGY (PTB-XL)
+% Medical (PTB-XL)
 % ---------------------------------------------------------
 \midrule
-\multicolumn{3}{l}{\textbf{Physiology / HRV} (Applied to PTB-XL)} \\
+\multicolumn{3}{l}{\textbf{Medical / HRV} (Applied to PTB-XL)} \\
 \midrule
 \multirow{4}{*}{HRV (Time)} 
  & RMSSD & Root mean square of successive RR interval differences; estimates vagal tone. \\
@@ -1190,6 +1191,8 @@ print(r"\end{table}")
 #| echo: false
 #| output: asis
 #| 
+import pandas as pd
+
 df = pd.read_csv("paper_files/geometric_audit_results.csv")
 
 # 1. Configuration
@@ -1200,6 +1203,20 @@ pretty_domain_map = {
     'star': 'Astronomy (Star)',
     'ptb-xl': 'Medical (PTB-XL)',
     'esc-50': 'Audio (ESC-50)'
+}
+
+# 2. Define Model Name Mapping
+# Keys should match identifying parts of the raw CSV names (case-insensitive)
+# Values are exactly what you want printed in the LaTeX table
+model_display_map = {
+    'w2v': 'Wav2Vec',
+    'astro': 'Astromer',
+    'moirai': 'Moirai',
+    'timesfm': 'TimesFM',
+    'fincast': 'FinCast',
+    'ecgfounder': 'ECGFounder',
+    'custom': 'Custom',
+    'random': 'Random'
 }
 
 print(r"\begin{table*}[h]") 
@@ -1217,7 +1234,7 @@ existing_domains = [d for d in domain_order if d in df['Dataset'].unique()]
 for i, domain in enumerate(existing_domains):
     domain_df = df[df['Dataset'] == domain].copy()
     
-    # Identify Random Baseline for this domain to calculate ratios
+    # Identify Random Baseline for this domain to calculate ratios (if needed later)
     random_row = domain_df[domain_df['Model'].str.contains('RANDOM', case=False)]
     if random_row.empty:
         random_id = 1.0
@@ -1233,21 +1250,21 @@ for i, domain in enumerate(existing_domains):
     # Print rows for this domain
     first_row = True
     for _, row in domain_df.iterrows():
-        # Escape LaTeX special chars in model names
-        model_name = row['Model'].replace("_", "\\_").replace("&", "\\&")
         
-        # Clean up redundant suffixes (e.g. 'FinCast-SP' -> 'FinCast')
-        if "-" in model_name and not "RANDOM" in model_name:
-                model_name = model_name.split("-")[0]
+        # --- NAME MAPPING LOGIC START ---
+        raw_name = row['Model'].lower()
         
-        if "RANDOM" in model_name.upper():
-            model_name = "Random Baseline"
-            collapse = "--"
-        else:
-            ratio = (1 - (row['Intrinsic_Dim'] / random_id)) * 100
-            collapse = f"{ratio:.1f}\%"
+        # Default to the raw name if no match found
+        model_name = row['Model'].replace("_", "\\_")
+        
+        # Check against our map
+        for key, display_val in model_display_map.items():
+            if key in raw_name:
+                model_name = display_val
+                break
+        # --- NAME MAPPING LOGIC END ---
 
-        # Formatting
+        # Formatting metrics
         size_val = int(row['Embedding_Size'])
         id_str = f"{row['Intrinsic_Dim']:.1f}"
         ani_str = f"{row['Anisotropy']:.3f}"
